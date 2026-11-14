@@ -36,9 +36,12 @@ h1, h2, h3 {
 """, unsafe_allow_html=True)
 
 st.title("📚 Zyro Dynamics HR Assistant")
-st.caption("Your AI-powered assistant for HR policies and workplace questions.")
+st.caption(
+    "Your AI-powered assistant for HR policies and workplace questions."
+)
 
 PDF_FOLDER = Path("hr_policies")
+
 
 @st.cache_resource
 def load_rag():
@@ -47,11 +50,12 @@ def load_rag():
     if not PDF_FOLDER.exists():
         return None, None, None, None
 
-    for pdf_path in PDF_FOLDER.glob("*.pdf"):
+    for pdf_path in sorted(PDF_FOLDER.glob("*.pdf")):
         reader = PdfReader(str(pdf_path))
 
         for page_number, page in enumerate(reader.pages, start=1):
             text = page.extract_text() or ""
+
             if text.strip():
                 documents.append({
                     "text": text,
@@ -72,25 +76,39 @@ def load_rag():
 
         while start < len(text):
             chunk = text[start:start + chunk_size]
+
             if chunk.strip():
                 chunks.append({
                     "text": chunk,
                     "source": doc["source"],
                     "page": doc["page"]
                 })
+
             start += chunk_size - overlap
 
-    embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    embedder = SentenceTransformer(
+        "sentence-transformers/all-MiniLM-L6-v2"
+    )
+
     embeddings = embedder.encode(
         [item["text"] for item in chunks],
         normalize_embeddings=True
     )
 
     index = faiss.IndexFlatIP(embeddings.shape[1])
-    index.add(np.array(embeddings, dtype="float32"))
+    index.add(
+        np.array(embeddings, dtype="float32")
+    )
 
-    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
-    model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
+    tokenizer = AutoTokenizer.from_pretrained(
+        "google/flan-t5-base"
+    )
+
+    model = AutoModelForSeq2SeqLM.from_pretrained(
+        "google/flan-t5-base"
+    )
+
+    model.eval()
 
     return chunks, embedder, index, (tokenizer, model)
 
@@ -99,21 +117,31 @@ with st.spinner("Loading HR policy documents and AI models..."):
     chunks, embedder, index, language_model = load_rag()
 
 if chunks is None:
-    st.error("HR policy PDFs were not found. Please add the PDF files to the hr_policies folder in your GitHub repository.")
+    st.error(
+        "HR policy PDFs were not found. Please add the PDF files "
+        "to the hr_policies folder in your GitHub repository."
+    )
     st.stop()
 
 st.success("HR policy assistant is ready!")
 
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-question = st.chat_input("Ask a question about Zyro HR policies...")
+
+question = st.chat_input(
+    "Ask a question about Zyro HR policies..."
+)
+
 
 if question:
+
     st.session_state.messages.append({
         "role": "user",
         "content": question
@@ -122,37 +150,91 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-    query_embedding = embedder.encode(
-        [question],
-        normalize_embeddings=True
-    ).astype("float32")
+    # Search with multiple query variations
+    search_queries = [
+        question,
+        question + " annual leave entitlement days per year",
+        "How many days of annual leave are allocated to employees annually?",
+        "annual leave allowance yearly entitlement"
+    ]
 
-    scores, indices = index.search(query_embedding, 4)
+    all_scores = {}
 
-    if scores[0][0] < 0.25:
-        answer = "I can only answer questions related to the Zyro Dynamics HR policy documents. Please ask an HR-related question."
+    for search_query in search_queries:
+
+        query_embedding = embedder.encode(
+            [search_query],
+            normalize_embeddings=True
+        ).astype("float32")
+
+        scores, indices = index.search(
+            query_embedding, 4
+        )
+
+        for score, idx in zip(scores[0], indices[0]):
+
+            if idx >= 0:
+                all_scores[idx] = max(
+                    all_scores.get(idx, 0),
+                    float(score)
+                )
+
+    ranked_indices = sorted(
+        all_scores,
+        key=all_scores.get,
+        reverse=True
+    )
+
+    if (
+        not ranked_indices
+        or all_scores[ranked_indices[0]] < 0.25
+    ):
+
+        answer = (
+            "I can only answer questions related to the "
+            "Zyro Dynamics HR policy documents. "
+            "Please ask an HR-related question."
+        )
+
         sources = []
+
     else:
-        retrieved = [chunks[i] for i in indices[0] if i >= 0]
+
+        retrieved = [
+            chunks[i] for i in ranked_indices[:6]
+        ]
 
         context = "\n\n".join(
             item["text"] for item in retrieved
         )
 
         prompt = f"""
-Answer the question using only the context below.
-If the answer is not available in the context, say that the HR policy documents do not provide this information.
-Do not invent policy details.
+You are a helpful HR policy assistant.
 
-Context:
+Answer the employee's question directly using only the
+policy context provided below.
+
+Look carefully for the exact policy entitlement, number
+of days, eligibility conditions, and applicable rules.
+
+Do not confuse leave entitlement with leave expiry.
+Do not answer with unrelated policy information.
+
+If the exact answer is not stated in the context,
+clearly say that the policy documents do not provide it.
+
+Never invent numbers or policy details.
+
+Policy context:
 {context}
 
-Question: {question}
+Employee question: {question}
 
-Answer:
+Direct answer:
 """
 
         tokenizer, model = language_model
+
         inputs = tokenizer(
             prompt,
             return_tensors="pt",
@@ -161,10 +243,13 @@ Answer:
         )
 
         with torch.no_grad():
+
             output = model.generate(
                 **inputs,
-                max_new_tokens=180,
-                do_sample=False
+                max_new_tokens=120,
+                num_beams=4,
+                do_sample=False,
+                repetition_penalty=1.2
             )
 
         answer = tokenizer.decode(
@@ -172,14 +257,32 @@ Answer:
             skip_special_tokens=True
         )
 
-        sources = retrieved
+        # Remove duplicate source citations
+        sources = []
+        seen_sources = set()
 
+        for item in retrieved:
+
+            source_key = (
+                item["source"],
+                item["page"]
+            )
+
+            if source_key not in seen_sources:
+                sources.append(item)
+                seen_sources.add(source_key)
+
+    # Prepare final response
     response = answer
 
     if sources:
         response += "\n\n**Sources:**"
+
         for source in sources:
-            response += f"\n- {source['source']} (Page {source['page']})"
+            response += (
+                f"\n- {source['source']} "
+                f"(Page {source['page']})"
+            )
 
     with st.chat_message("assistant"):
         st.markdown(response)
