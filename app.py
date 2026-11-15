@@ -52,8 +52,6 @@ PDF_FOLDER = Path("hr_policies")
 # --------------------------------------------------
 
 def clean_text(text):
-    """Clean extracted PDF text while preserving useful line breaks."""
-
     text = text.replace("\x00", " ")
     text = text.replace("\ufeff", " ")
     text = re.sub(r"[^\S\n]+", " ", text)
@@ -98,14 +96,11 @@ def get_words(text):
 def create_chunks(documents):
 
     chunks = []
-
     chunk_size = 900
 
     for doc in documents:
 
         text = doc["text"]
-
-        # Split text into sentences while preserving bullet-like lines.
 
         sentences = re.split(
             r"(?<=[.!?])\s+|\n+",
@@ -113,7 +108,6 @@ def create_chunks(documents):
         )
 
         current_chunk = []
-
         current_length = 0
 
         for sentence in sentences:
@@ -122,8 +116,6 @@ def create_chunks(documents):
 
             if not sentence:
                 continue
-
-            # Handle unusually long sentences.
 
             if len(sentence) > chunk_size:
 
@@ -138,7 +130,11 @@ def create_chunks(documents):
                     current_chunk = []
                     current_length = 0
 
-                for start in range(0, len(sentence), chunk_size - 120):
+                for start in range(
+                    0,
+                    len(sentence),
+                    chunk_size - 120
+                ):
 
                     piece = sentence[
                         start:start + chunk_size
@@ -165,16 +161,12 @@ def create_chunks(documents):
                     "page": doc["page"]
                 })
 
-                # Keep the last sentence as context overlap.
-
                 previous_sentence = current_chunk[-1]
 
                 current_chunk = [previous_sentence]
-
                 current_length = len(previous_sentence)
 
             current_chunk.append(sentence)
-
             current_length += len(sentence)
 
         if current_chunk:
@@ -271,9 +263,6 @@ def get_document_filter(question):
 
     q = question.lower()
 
-    # When a question specifically names the Code of Conduct,
-    # search that policy instead of unrelated HR documents.
-
     code_terms = [
         "code of conduct",
         "conduct policy",
@@ -284,14 +273,12 @@ def get_document_filter(question):
     ]
 
     if any(term in q for term in code_terms):
-
         return "04_Code_of_Conduct.pdf"
 
     if any(term in q for term in [
         "work from home", "work-from-home",
         "wfh", "hybrid work"
     ]):
-
         return "03_Work_From_Home_Policy.pdf"
 
     if any(term in q for term in [
@@ -300,14 +287,12 @@ def get_document_filter(question):
         "maternity leave", "paternity leave",
         "bereavement leave", "marriage leave"
     ]):
-
         return "02_Leave_Policy.pdf"
 
     if any(term in q for term in [
         "sexual harassment", "posh",
         "harassment complaint"
     ]):
-
         return "08_Prevention_of_Sexual_Harassment_Policy.pdf"
 
     return None
@@ -320,51 +305,31 @@ def get_document_filter(question):
 def get_expanded_terms(question):
 
     q = question.lower()
-
     expanded = set()
 
-    # Related terminology helps retrieve policy sections
-    # that use different wording from the user's question.
-
     if any(term in q for term in [
-        "misconduct",
-        "unethical",
-        "prohibited",
-        "violations",
-        "wrongdoing"
+        "misconduct", "unethical",
+        "prohibited", "violations", "wrongdoing"
     ]):
 
         expanded.update({
-            "fraud",
-            "bribery",
-            "corruption",
-            "dishonesty",
-            "harassment",
-            "discrimination",
-            "retaliation",
-            "confidentiality",
-            "conflict",
-            "interest",
-            "theft",
-            "falsification",
-            "misuse",
-            "integrity"
+            "fraud", "bribery", "corruption",
+            "dishonesty", "harassment",
+            "discrimination", "retaliation",
+            "confidentiality", "conflict",
+            "interest", "theft", "falsification",
+            "misuse", "integrity"
         })
 
     if any(term in q for term in [
-        "confidentiality",
-        "confidential",
+        "confidentiality", "confidential",
         "company information"
     ]):
 
         expanded.update({
-            "data",
-            "disclosure",
-            "unauthorised",
-            "unauthorized",
-            "privacy",
-            "credentials",
-            "source code"
+            "data", "disclosure", "unauthorised",
+            "unauthorized", "privacy",
+            "credentials", "source code"
         })
 
     if any(term in q for term in [
@@ -373,11 +338,8 @@ def get_expanded_terms(question):
     ]):
 
         expanded.update({
-            "employment",
-            "consulting",
-            "approval",
-            "personal",
-            "financial"
+            "employment", "consulting",
+            "approval", "personal", "financial"
         })
 
     return expanded
@@ -399,8 +361,6 @@ def retrieve_documents(
         normalize_embeddings=True
     ).astype("float32")
 
-    # Search more candidates before reranking.
-
     candidate_count = min(40, len(chunks))
 
     scores, indices = index.search(
@@ -409,9 +369,7 @@ def retrieve_documents(
     )
 
     question_words = get_words(question)
-
     expanded_terms = get_expanded_terms(question)
-
     document_filter = get_document_filter(question)
 
     ranked = []
@@ -425,9 +383,6 @@ def retrieve_documents(
             continue
 
         chunk = chunks[idx]
-
-        # Restrict results to the requested policy when
-        # the user explicitly identifies that policy.
 
         if (
             document_filter
@@ -457,8 +412,6 @@ def retrieve_documents(
         else:
             expansion_match = 0
 
-        # Combine semantic similarity and keyword relevance.
-
         final_score = (
             0.65 * float(similarity)
             + 0.25 * overlap
@@ -476,12 +429,8 @@ def retrieve_documents(
         reverse=True
     )
 
-    # Select relevant chunks while avoiding repeated text.
-
     selected = []
-
     seen_text = set()
-
     page_counts = {}
 
     for item in ranked:
@@ -497,8 +446,6 @@ def retrieve_documents(
         if text_key in seen_text:
             continue
 
-        # Ignore weak matches.
-
         if item["score"] < 0.28:
             continue
 
@@ -507,13 +454,10 @@ def retrieve_documents(
             chunk["page"]
         )
 
-        # Allow up to two chunks from the same page.
-
         if page_counts.get(page_key, 0) >= 2:
             continue
 
         selected.append(item)
-
         seen_text.add(text_key)
 
         page_counts[page_key] = (
@@ -533,7 +477,6 @@ def retrieve_documents(
 def format_sources(retrieved):
 
     sources = []
-
     seen = set()
 
     for item in retrieved:
@@ -565,14 +508,218 @@ def get_policy_answer(question):
 
     q = question.lower()
 
+    # CODE OF CONDUCT — DISCIPLINARY ACTIONS
+
+    if (
+        "code of conduct" in q
+        and any(term in q for term in [
+            "disciplinary", "punishment",
+            "penalty", "misconduct",
+            "violation", "violations",
+            "unethical", "wrongdoing"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct, "
+            "the following violations may result in disciplinary action:\n\n"
+
+            "**1. Accepting cash:** Accepting cash from any party "
+            "is strictly prohibited and results in immediate "
+            "disciplinary action under a zero-tolerance rule.\n\n"
+
+            "**2. Confidentiality violations:** Sharing confidential "
+            "company information without authorization may result "
+            "in disciplinary action up to and including termination. "
+            "Civil or criminal liability may also apply.\n\n"
+
+            "**3. Social media misconduct:** Negative commentary "
+            "or criticism of colleagues, management, or clients "
+            "on social media may attract disciplinary action.\n\n"
+
+            "**4. Retaliation:** Retaliating against an employee "
+            "who reports a genuine concern in good faith is a "
+            "serious disciplinary matter.\n\n"
+
+            "**5. Habitual tardiness:** Repeated lateness without "
+            "a valid reason is a disciplinary matter.\n\n"
+
+            "**Note:** The Code of Conduct does not provide a "
+            "complete list of disciplinary measures for every violation."
+        ), [
+            ("04_Code_of_Conduct.pdf", 1),
+            ("04_Code_of_Conduct.pdf", 2),
+            ("04_Code_of_Conduct.pdf", 3)
+        ]
+
+    # CODE OF CONDUCT — GENERAL RESPONSIBILITIES
+
+    if (
+        "code of conduct" in q
+        and any(term in q for term in [
+            "responsibilities", "responsibility",
+            "expected behaviour", "expected behavior",
+            "main rules", "main duties"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct, "
+            "employees are expected to:\n\n"
+            "- Treat colleagues, clients, vendors, and visitors "
+            "with dignity and respect.\n"
+            "- Maintain professional language and communication.\n"
+            "- Resolve disagreements through respectful dialogue "
+            "and escalate unresolved matters to a manager or HR.\n"
+            "- Avoid offensive or discriminatory language and "
+            "conduct that creates a hostile environment.\n"
+            "- Take ownership of work and commitments.\n"
+            "- Be punctual for work, meetings, and client engagements.\n"
+            "- Protect confidential company information.\n"
+            "- Disclose actual or potential conflicts of interest.\n"
+            "- Follow the company's social media rules."
+        ), [
+            ("04_Code_of_Conduct.pdf", 1),
+            ("04_Code_of_Conduct.pdf", 2),
+            ("04_Code_of_Conduct.pdf", 3)
+        ]
+
+    # CODE OF CONDUCT — CONFIDENTIALITY
+
+    if (
+        "code of conduct" in q
+        and any(term in q for term in [
+            "confidentiality", "confidential",
+            "company information"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct:\n\n"
+            "- Confidential information must only be shared with "
+            "people who have an authorised business need to access it.\n"
+            "- Company information must not be posted on social media, "
+            "shared on personal devices, or disclosed to media outlets.\n"
+            "- On leaving the company, confidential documents, "
+            "access credentials, and company assets must be returned "
+            "or deleted as directed by IT and HR.\n"
+            "- Violations may result in disciplinary action up to "
+            "and including termination. Civil or criminal liability "
+            "may also apply."
+        ), [
+            ("04_Code_of_Conduct.pdf", 2)
+        ]
+
+    # CODE OF CONDUCT — CONFLICTS OF INTEREST
+
+    if (
+        "code of conduct" in q
+        and any(term in q for term in [
+            "conflict of interest",
+            "conflicts of interest"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct:\n\n"
+            "- Actual or potential conflicts must be disclosed "
+            "in writing to the reporting manager and HR immediately.\n"
+            "- Financial interests in competitors, customers, or "
+            "suppliers require prior written clearance from Legal "
+            "and Compliance.\n"
+            "- If an immediate family member works for a competitor "
+            "or vendor, the employee must disclose this to HR.\n"
+            "- Paid employment or consulting with another organisation "
+            "requires prior written approval from the Chief People Officer."
+        ), [
+            ("04_Code_of_Conduct.pdf", 2)
+        ]
+
+    # CODE OF CONDUCT — GIFTS AND HOSPITALITY
+
+    if (
+        "code of conduct" in q
+        and any(term in q for term in [
+            "gift", "gifts", "hospitality",
+            "cash", "bribe"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct:\n\n"
+            "- Gifts under Rs. 1,000 may be accepted but must be "
+            "declared to the reporting manager.\n"
+            "- Gifts over Rs. 1,000 must be declined or surrendered "
+            "to HR.\n"
+            "- Client-hosted meals are permitted up to Rs. 3,000 "
+            "per person.\n"
+            "- Vendor-sponsored domestic travel requires prior "
+            "written approval from the CFO.\n"
+            "- Branded gifts to clients must be pre-approved by "
+            "Finance and cost under Rs. 2,000 per item.\n"
+            "- Accepting cash from any party is never permitted "
+            "and results in immediate disciplinary action."
+        ), [
+            ("04_Code_of_Conduct.pdf", 3)
+        ]
+
+    # CODE OF CONDUCT — SOCIAL MEDIA
+
+    if (
+        "code of conduct" in q
+        and any(term in q for term in [
+            "social media", "social network",
+            "online post", "posting online"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct:\n\n"
+            "- Do not share confidential company information, "
+            "internal communications, client names, product "
+            "screenshots, or financial data on social media.\n"
+            "- Do not present personal statements as the official "
+            "position of Zyro Dynamics unless authorised.\n"
+            "- Negative commentary or criticism of colleagues, "
+            "management, or clients is prohibited and may attract "
+            "disciplinary action.\n"
+            "- Include a personal disclaimer when sharing "
+            "professional opinions publicly."
+        ), [
+            ("04_Code_of_Conduct.pdf", 3)
+        ]
+
+    # CODE OF CONDUCT — REPORTING VIOLATIONS
+
+    if (
+        "code of conduct" in q
+        and any(term in q for term in [
+            "report", "reporting",
+            "whistleblower", "retaliation"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct, "
+            "employees are encouraged to report suspected violations "
+            "without fear of retaliation.\n\n"
+            "Reports can be made through:\n"
+            "- Reporting Manager\n"
+            "- HR Grievance Cell\n"
+            "- Anonymous Whistleblower Portal\n"
+            "- Chief People Officer\n\n"
+            "Retaliation against an employee who raises a genuine "
+            "concern in good faith is itself a violation and a "
+            "serious disciplinary matter."
+        ), [
+            ("04_Code_of_Conduct.pdf", 3)
+        ]
+
     # WORK FROM HOME POLICY
 
     if any(term in q for term in [
-        "work from home",
-        "work-from-home",
-        "wfh",
-        "hybrid work",
-        "hybrid wfh"
+        "work from home", "work-from-home",
+        "wfh", "hybrid work"
     ]):
 
         if "hybrid" in q and any(term in q for term in [
@@ -650,8 +797,7 @@ def get_policy_answer(question):
             "Leave after completing one year of continuous service.\n"
             "- Employees must have worked at least 240 days "
             "during that year.\n"
-            "- Thereafter, Earned Leave accrues at 1.25 days "
-            "per month.\n"
+            "- Thereafter, Earned Leave accrues at 1.25 days per month.\n"
             "- During probation, employees accrue EL at "
             "0.5 days per month.\n"
             "- Probationary EL becomes available for use only "
@@ -714,8 +860,7 @@ def get_policy_answer(question):
             "According to the Zyro Dynamics Leave Policy:\n\n"
             "- 8 days of Casual Leave per year.\n"
             "- Credited on the first day of the following month "
-            "if the employee worked at least 20 days in the "
-            "previous month.\n"
+            "if the employee worked at least 20 days in the previous month.\n"
             "- Cannot be carried forward or encashed.\n"
             "- Maximum of 2 consecutive days."
         ), [("02_Leave_Policy.pdf", 2)]
@@ -728,8 +873,7 @@ def get_policy_answer(question):
             "According to the Zyro Dynamics Leave Policy:\n\n"
             "- 10 days of Sick Leave per year.\n"
             "- Credited on the first day of the following month "
-            "if the employee worked at least 20 days in the "
-            "previous month.\n"
+            "if the employee worked at least 20 days in the previous month.\n"
             "- Cannot be carried forward or encashed.\n"
             "- More than 2 consecutive days requires a Medical "
             "Certificate from a registered medical practitioner."
@@ -796,8 +940,6 @@ if question:
 
         with st.spinner("Searching HR policy documents..."):
 
-            # Check predefined answers first.
-
             answer, direct_sources = get_policy_answer(
                 question
             )
@@ -851,8 +993,6 @@ if question:
                         )
 
                     sources = format_sources(retrieved)
-
-            # Display citations.
 
             response = answer
 
