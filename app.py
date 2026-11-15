@@ -53,7 +53,6 @@ h1, h2, h3 {
 # --------------------------------------------------
 
 POLICY_FOLDER = "hr_policies"
-
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 CHUNK_SIZE = 1000
@@ -85,7 +84,6 @@ def load_documents():
             for page_number, page in enumerate(reader.pages, start=1):
 
                 text = page.extract_text() or ""
-
                 text = re.sub(r"\s+", " ", text).strip()
 
                 if text:
@@ -112,13 +110,11 @@ def create_chunks(documents):
     for document in documents:
 
         text = document["text"]
-
         start = 0
 
         while start < len(text):
 
             end = start + CHUNK_SIZE
-
             chunk_text = text[start:end].strip()
 
             if chunk_text:
@@ -167,7 +163,6 @@ def load_rag():
     embeddings = np.asarray(embeddings, dtype="float32")
 
     index = faiss.IndexFlatIP(embeddings.shape[1])
-
     index.add(embeddings)
 
     return model, index, chunks
@@ -182,63 +177,42 @@ def get_document_filter(question):
     q = question.lower()
 
     if any(term in q for term in [
-        "working hours",
-        "work hours",
-        "hours per day",
-        "full-time employee",
-        "full time employee",
-        "working days",
-        "attendance",
-        "office timing",
-        "office hours",
-        "daily working"
+        "working hours", "work hours", "hours per day",
+        "full-time employee", "full time employee",
+        "working days", "attendance", "office timing",
+        "office hours", "daily working"
     ]):
         return "01_Employee_Handbook.pdf"
 
     if any(term in q for term in [
-        "code of conduct",
-        "misconduct",
-        "cash from vendor",
-        "confidential information",
-        "conflict of interest",
-        "social media",
-        "report violations",
-        "reporting violations",
-        "retaliation",
-        "whistleblower",
-        "gifts from vendors"
+        "sexual harassment", "posh", "harassment complaint",
+        "internal complaints committee", "icc",
+        "unwelcome sexual", "sexual misconduct"
+    ]):
+        return "08_Prevention_of_Sexual_Harassment_Policy.pdf"
+
+    if any(term in q for term in [
+        "code of conduct", "misconduct", "cash from vendor",
+        "confidential information", "conflict of interest",
+        "social media", "report violations",
+        "reporting violations", "retaliation",
+        "whistleblower", "gifts from vendors"
     ]):
         return "04_Code_of_Conduct.pdf"
 
     if any(term in q for term in [
-        "work from home",
-        "work remotely",
-        "hybrid work",
-        "remote work",
-        "wfh"
+        "work from home", "work remotely",
+        "hybrid work", "remote work", "wfh"
     ]):
         return "03_Work_From_Home_Policy.pdf"
 
     if any(term in q for term in [
-        "annual leave",
-        "earned leave",
-        "casual leave",
-        "sick leave",
-        "maternity leave",
-        "paternity leave",
-        "bereavement leave",
-        "marriage leave",
+        "annual leave", "earned leave", "casual leave",
+        "sick leave", "maternity leave", "paternity leave",
+        "bereavement leave", "marriage leave",
         "leave entitlement"
     ]):
         return "02_Leave_Policy.pdf"
-
-    if any(term in q for term in [
-        "sexual harassment",
-        "posh",
-        "harassment complaint",
-        "internal complaints committee"
-    ]):
-        return "08_Prevention_of_Sexual_Harassment_Policy.pdf"
 
     return None
 
@@ -281,9 +255,8 @@ def retrieve_documents(question, model, index, chunks):
 
         chunk = chunks[chunk_index]
 
-        if selected_document:
-            if chunk["source"] != selected_document:
-                continue
+        if selected_document and chunk["source"] != selected_document:
+            continue
 
         if score < 0.25:
             continue
@@ -309,19 +282,114 @@ def get_direct_answer(question):
 
     q = question.lower()
 
+    # POSH POLICY
+
+    posh_terms = [
+        "sexual harassment", "posh", "harassment at workplace",
+        "harassed at work", "harassment complaint",
+        "file a complaint", "complaint with icc",
+        "internal complaints committee", "icc complaint",
+        "report sexual harassment", "experience harassment"
+    ]
+
+    if any(term in q for term in posh_terms):
+
+        return {
+            "answer": """
+If an employee experiences sexual harassment, they can submit
+a **written complaint to the Internal Complaints Committee (ICC)**
+under the Zyro Dynamics POSH Policy.
+
+### Step 1: Submit a written complaint
+
+- Submit the complaint by email to the ICC or as a sealed letter
+  addressed to the Presiding Officer at the HR office at
+  Zyro Dynamics HQ.
+- The complaint should be submitted within **3 months of the
+  incident**, or within 3 months of the last incident if there
+  is a series of incidents.
+- In exceptional circumstances, the ICC may extend this period
+  by a further 3 months upon a written application explaining
+  the reasons.
+
+**ICC email clarification:** The email address in the extracted
+policy appears with a formatting error as
+`icc@zyrodyn amics.com`. Please verify the correct address with HR
+before sending a complaint. You can use the sealed-letter option
+described above.
+
+### Step 2: ICC acknowledges the complaint
+
+The ICC acknowledges receipt and forwards a copy of the complaint
+to the respondent within **7 working days**.
+
+### Step 3: Respondent submits a response
+
+The respondent is given **10 working days** to submit a written
+response.
+
+### Step 4: ICC conducts an inquiry
+
+The ICC conducts an inquiry, including hearings with both parties,
+witnesses, and a review of evidence.
+
+The inquiry is to be completed within **60 days**.
+
+### Step 5: Inquiry report
+
+The ICC submits its inquiry report and recommendations to management
+within **10 days of completing the inquiry**.
+
+### Step 6: Management takes action
+
+Management implements the recommended action based on the ICC's
+findings.
+
+### Confidentiality
+
+The identities of the complainant, respondent, and witnesses,
+as well as the inquiry proceedings, findings, and recommendations,
+must remain strictly confidential.
+
+### Protection from retaliation
+
+The company prohibits retaliation against anyone who files a complaint,
+participates in an inquiry, or reports a suspected violation in good
+faith.
+
+Retaliation such as threats, demotion, transfer, isolation, adverse
+performance ratings, or termination is treated as a separate and
+serious disciplinary matter.
+
+### Possible consequences
+
+Depending on the ICC's findings, action against the respondent
+may include:
+
+- Written warning and mandatory sensitisation training.
+- Suspension without pay.
+- Transfer to another team, project, or location.
+- Withholding promotion, increments, or benefits.
+- Termination of employment.
+- Referral to law enforcement if the conduct constitutes
+  a criminal offence under applicable Indian law.
+
+**Remember:** Employees can approach the ICC through the complaint
+procedure described in the POSH Policy.
+""",
+            "sources": [
+                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2),
+                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
+            ]
+        }
+
     # WORKING HOURS
 
     working_terms = [
-        "working hours",
-        "work hours",
-        "hours per day",
-        "full-time employee",
-        "full time employee",
-        "how many hours",
-        "working days",
-        "office hours",
-        "office timing",
-        "daily working hours",
+        "working hours", "work hours", "hours per day",
+        "full-time employee", "full time employee",
+        "how many hours", "working days", "office hours",
+        "office timing", "daily working hours",
         "expected to work"
     ]
 
@@ -386,10 +454,8 @@ The company follows a zero-tolerance approach to accepting cash.
     # CONFIDENTIAL INFORMATION
 
     if any(term in q for term in [
-        "confidential information",
-        "confidential data",
-        "company information",
-        "data leak"
+        "confidential information", "confidential data",
+        "company information", "data leak"
     ]):
 
         return {
@@ -444,15 +510,12 @@ personal views:
             "sources": [("04_Code_of_Conduct.pdf", 3)]
         }
 
-    # REPORTING VIOLATIONS
+    # REPORTING CODE OF CONDUCT VIOLATIONS
 
     if any(term in q for term in [
-        "report violation",
-        "reporting violation",
-        "whistleblower",
-        "retaliation",
-        "report misconduct",
-        "report a concern",
+        "report violation", "reporting violation",
+        "whistleblower", "retaliation",
+        "report misconduct", "report a concern",
         "report a complaint"
     ]):
 
@@ -527,10 +590,8 @@ The Code of Conduct specifies the following gift and hospitality rules:
     # WORK FROM HOME
 
     if any(term in q for term in [
-        "work from home",
-        "hybrid work",
-        "remote work",
-        "wfh"
+        "work from home", "hybrid work",
+        "remote work", "wfh"
     ]):
 
         return {
@@ -591,7 +652,8 @@ def is_likely_hr_question(question):
         "harassment", "conduct", "confidential",
         "remote", "wfh", "probation", "resignation",
         "termination", "reimbursement", "travel",
-        "expense", "working hours", "working days"
+        "expense", "working hours", "working days",
+        "posh", "icc", "complaint", "retaliation"
     ]
 
     q = question.lower()
@@ -611,10 +673,7 @@ def display_sources(sources):
     st.markdown("**Sources:**")
 
     for source, page in sources:
-
-        st.markdown(
-            f"- `{source}` (Page {page})"
-        )
+        st.markdown(f"- `{source}` (Page {page})")
 
 
 # --------------------------------------------------
@@ -691,7 +750,6 @@ if "messages" not in st.session_state:
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
-
         st.markdown(message["content"])
 
 
@@ -725,7 +783,6 @@ if question:
                 answer = direct_result["answer"]
 
                 st.markdown(answer)
-
                 display_sources(direct_result["sources"])
 
             elif not is_likely_hr_question(question):
@@ -771,7 +828,6 @@ Please ask an HR-related question.
                         ))
 
                     st.markdown(answer)
-
                     display_sources(sorted(seen_sources))
 
                 else:
