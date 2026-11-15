@@ -7,9 +7,10 @@ from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 import faiss
 
-# --------------------------------------------------
-# PAGE CONFIGURATION
-# --------------------------------------------------
+
+# ==================================================
+# 1. PAGE CONFIGURATION
+# ==================================================
 
 st.set_page_config(
     page_title="Zyro Dynamics | HR Assistant",
@@ -38,19 +39,13 @@ h1, h2, h3 {
     background-color: #59345f;
     color: white;
 }
-.answer-box {
-    background-color: #f0e9f2;
-    padding: 18px;
-    border-radius: 12px;
-    border-left: 5px solid #704477;
-}
 </style>
 """, unsafe_allow_html=True)
 
 
-# --------------------------------------------------
-# DOCUMENT SETTINGS
-# --------------------------------------------------
+# ==================================================
+# 2. DOCUMENT SETTINGS
+# ==================================================
 
 POLICY_FOLDER = "hr_policies"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -58,10 +53,12 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
 
+POSH_FILE = "08_Prevention_of_Sexual_Harassment_Policy.pdf"
 
-# --------------------------------------------------
-# LOAD PDF DOCUMENTS
-# --------------------------------------------------
+
+# ==================================================
+# 3. LOAD POLICY PDF DOCUMENTS
+# ==================================================
 
 @st.cache_resource
 def load_documents():
@@ -99,9 +96,9 @@ def load_documents():
     return documents
 
 
-# --------------------------------------------------
-# CREATE TEXT CHUNKS
-# --------------------------------------------------
+# ==================================================
+# 4. CREATE TEXT CHUNKS
+# ==================================================
 
 def create_chunks(documents):
 
@@ -118,6 +115,7 @@ def create_chunks(documents):
             chunk_text = text[start:end].strip()
 
             if chunk_text:
+
                 chunks.append({
                     "text": chunk_text,
                     "source": document["source"],
@@ -132,9 +130,9 @@ def create_chunks(documents):
     return chunks
 
 
-# --------------------------------------------------
-# LOAD EMBEDDINGS AND FAISS INDEX
-# --------------------------------------------------
+# ==================================================
+# 5. CREATE EMBEDDINGS AND FAISS INDEX
+# ==================================================
 
 @st.cache_resource
 def load_rag():
@@ -160,66 +158,107 @@ def load_rag():
         show_progress_bar=False
     )
 
-    embeddings = np.asarray(embeddings, dtype="float32")
+    embeddings = np.asarray(
+        embeddings,
+        dtype="float32"
+    )
 
-    index = faiss.IndexFlatIP(embeddings.shape[1])
+    index = faiss.IndexFlatIP(
+        embeddings.shape[1]
+    )
+
     index.add(embeddings)
 
     return model, index, chunks
 
 
-# --------------------------------------------------
-# POLICY DOCUMENT FILTER
-# --------------------------------------------------
+# ==================================================
+# 6. IDENTIFY THE RELEVANT POLICY DOCUMENT
+# ==================================================
 
 def get_document_filter(question):
 
     q = question.lower()
 
-    if any(term in q for term in [
-        "working hours", "work hours", "hours per day",
-        "full-time employee", "full time employee",
-        "working days", "attendance", "office timing",
-        "office hours", "daily working"
-    ]):
-        return "01_Employee_Handbook.pdf"
+    document_rules = {
 
-    if any(term in q for term in [
-        "sexual harassment", "posh", "harassment complaint",
-        "internal complaints committee", "icc",
-        "unwelcome sexual", "sexual misconduct"
-    ]):
-        return "08_Prevention_of_Sexual_Harassment_Policy.pdf"
+        "01_Employee_Handbook.pdf": [
+            "working hours", "work hours", "hours per day",
+            "full-time employee", "full time employee",
+            "working days", "attendance", "office timing",
+            "office hours", "daily working", "employee handbook",
+            "dress code", "attendance policy"
+        ],
 
-    if any(term in q for term in [
-        "code of conduct", "misconduct", "cash from vendor",
-        "confidential information", "conflict of interest",
-        "social media", "report violations",
-        "reporting violations", "retaliation",
-        "whistleblower", "gifts from vendors"
-    ]):
-        return "04_Code_of_Conduct.pdf"
+        POSH_FILE: [
+            "sexual harassment", "posh", "harassment complaint",
+            "internal complaints committee", "icc",
+            "unwelcome sexual", "sexual misconduct",
+            "sexually coloured", "sexually explicit"
+        ],
 
-    if any(term in q for term in [
-        "work from home", "work remotely",
-        "hybrid work", "remote work", "wfh"
-    ]):
-        return "03_Work_From_Home_Policy.pdf"
+        "04_Code_of_Conduct.pdf": [
+            "code of conduct", "misconduct",
+            "cash from vendor", "confidential information",
+            "conflict of interest", "social media",
+            "report violations", "reporting violations",
+            "whistleblower", "gifts from vendors"
+        ],
 
-    if any(term in q for term in [
-        "annual leave", "earned leave", "casual leave",
-        "sick leave", "maternity leave", "paternity leave",
-        "bereavement leave", "marriage leave",
-        "leave entitlement"
-    ]):
-        return "02_Leave_Policy.pdf"
+        "03_Work_From_Home_Policy.pdf": [
+            "work from home", "work remotely",
+            "hybrid work", "remote work", "wfh"
+        ],
+
+        "02_Leave_Policy.pdf": [
+            "annual leave", "earned leave", "casual leave",
+            "sick leave", "maternity leave", "paternity leave",
+            "bereavement leave", "marriage leave",
+            "leave entitlement", "leave policy"
+        ],
+
+        "05_Performance_Review_Policy.pdf": [
+            "performance review", "performance appraisal",
+            "performance rating", "promotion criteria"
+        ],
+
+        "06_Compensation_and_Benefits_Policy.pdf": [
+            "compensation", "salary structure",
+            "employee benefits", "bonus", "increment",
+            "pay structure", "benefits policy"
+        ],
+
+        "07_IT_and_Data_Security_Policy.pdf": [
+            "data security", "password policy",
+            "information security", "cybersecurity",
+            "it policy", "company laptop", "data breach"
+        ],
+
+        "09_Onboarding_and_Separation_Policy.pdf": [
+            "onboarding", "joining formalities",
+            "resignation", "notice period",
+            "exit process", "separation policy",
+            "offboarding"
+        ],
+
+        "10_Travel_and_Expense_Policy.pdf": [
+            "travel policy", "travel expenses",
+            "reimbursement", "business travel",
+            "hotel expenses", "travel allowance"
+        ]
+    }
+
+    for filename, terms in document_rules.items():
+
+        if any(term in q for term in terms):
+            return filename
 
     return None
 
 
-# --------------------------------------------------
-# RETRIEVE RELEVANT DOCUMENTS
-# --------------------------------------------------
+# ==================================================
+# 7. RETRIEVE RELEVANT POLICY EXCERPTS
+# ==================================================
 
 def retrieve_documents(question, model, index, chunks):
 
@@ -255,7 +294,10 @@ def retrieve_documents(question, model, index, chunks):
 
         chunk = chunks[chunk_index]
 
-        if selected_document and chunk["source"] != selected_document:
+        if (
+            selected_document
+            and chunk["source"] != selected_document
+        ):
             continue
 
         if score < 0.25:
@@ -268,22 +310,94 @@ def retrieve_documents(question, model, index, chunks):
             "score": float(score)
         })
 
-        if len(results) >= 5:
-            break
-
-    return results
+    return results[:5]
 
 
-# --------------------------------------------------
-# DIRECT POLICY ANSWERS
-# --------------------------------------------------
+# ==================================================
+# 8. HELPER FOR DIRECT ANSWERS
+# ==================================================
+
+def make_answer(answer, page_numbers, filename=POSH_FILE):
+
+    return {
+        "answer": answer,
+        "sources": [
+            (filename, page)
+            for page in page_numbers
+        ]
+    }
+
+
+# ==================================================
+# 9. DIRECT POLICY ANSWERS
+# ==================================================
 
 def get_direct_answer(question):
 
-    q = question.lower()
+    q = question.lower().strip()
 
-    # POSH POLICY COVERAGE
-    # This must come BEFORE the general POSH complaint answer.
+    # --------------------------------------------------
+    # POSH: TYPES OF SEXUAL HARASSMENT
+    # --------------------------------------------------
+
+    behaviour_question = any(term in q for term in [
+        "what types of behaviour",
+        "what type of behaviour",
+        "types of behaviour",
+        "types of conduct",
+        "what behaviours",
+        "what behaviour",
+        "what actions are considered",
+        "what is considered sexual harassment",
+        "examples of sexual harassment",
+        "examples of harassment",
+        "what constitutes sexual harassment",
+        "meaning of sexual harassment",
+        "define sexual harassment"
+    ])
+
+    if (
+        behaviour_question
+        or (
+            "sexual harassment" in q
+            and any(term in q for term in [
+                "behaviour", "behavior", "examples",
+                "constitute", "considered", "meaning",
+                "types", "definition"
+            ])
+        )
+    ):
+
+        return make_answer("""
+According to the Zyro Dynamics POSH Policy, sexual harassment includes the following unwelcome behaviours:
+
+### Types of sexual harassment
+
+1. **Unwelcome physical contact or advances:** Unwanted physical touching or advances of a sexual nature.
+
+2. **Requests or demands for sexual favours:** Asking or pressuring someone to provide sexual favours.
+
+3. **Sexually coloured remarks, gestures, or jokes:** Making unwelcome comments, gestures, or jokes of a sexual nature.
+
+4. **Showing or sharing pornography:** Displaying or sharing pornographic or sexually explicit content.
+
+5. **Other unwelcome conduct:** Any other unwelcome physical, verbal, or non-verbal conduct of a sexual nature.
+
+### Related situations covered by the policy
+
+The policy also identifies:
+
+- Implied or explicit promises of preferential treatment.
+- Threats of adverse employment consequences.
+- Creating a hostile work environment.
+- Humiliating treatment that may affect a person's health or safety.
+
+**Important:** The policy covers unwelcome conduct of a sexual nature. These examples are based on the company's POSH Policy.
+""", [2])
+
+    # --------------------------------------------------
+    # POSH: POLICY COVERAGE
+    # --------------------------------------------------
 
     coverage_terms = [
         "who is covered",
@@ -307,9 +421,8 @@ def get_direct_answer(question):
 
     if any(term in q for term in coverage_terms):
 
-        return {
-            "answer": """
-According to the **Zyro Dynamics POSH Policy**, the policy covers the following categories of people:
+        return make_answer("""
+According to the Zyro Dynamics POSH Policy, the policy covers:
 
 ### People covered
 
@@ -333,15 +446,11 @@ The policy applies to workplace-related situations in:
 - Digital communication channels connected to the workplace.
 
 **Important:** The policy is not limited to permanent or full-time employees. It also covers the other listed employment categories and third-party personnel.
+""", [2])
 
-**Source:** Zyro Dynamics Prevention of Sexual Harassment (POSH) Policy, Page 2.
-""",
-            "sources": [
-                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2)
-            ]
-        }
-
-    # ICC MEMBERSHIP
+    # --------------------------------------------------
+    # POSH: ICC MEMBERSHIP
+    # --------------------------------------------------
 
     membership_terms = [
         "who are the members",
@@ -363,41 +472,32 @@ The policy applies to workplace-related situations in:
 
     if any(term in q for term in membership_terms):
 
-        return {
-            "answer": """
-According to the Zyro Dynamics POSH Policy, the **Internal Complaints Committee (ICC)** consists of four members:
+        return make_answer("""
+According to the Zyro Dynamics POSH Policy, the Internal Complaints Committee (ICC) consists of four members:
 
 1. **Marta** – Presiding Officer and Chief People Officer.
 2. **Pooja Ramachandran** – Internal Member, Legal & Compliance.
 3. **Aryan Kapoor** – Internal Member, Engineering Manager (L6).
 4. **Adv. Preethi Srinivas** – External Member from an external women's rights organisation.
 
-The ICC is responsible for handling workplace sexual-harassment complaints and conducting inquiries in accordance with the POSH Policy.
-""",
-            "sources": [
-                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2)
-            ]
-        }
+The ICC handles workplace sexual-harassment complaints and conducts inquiries under the POSH Policy.
+""", [2])
 
-    # POSH CONFIDENTIALITY
+    # --------------------------------------------------
+    # POSH: CONFIDENTIALITY
+    # --------------------------------------------------
 
     confidentiality_terms = [
-        "confidentiality",
-        "confidential",
-        "identity confidential",
-        "identities confidential",
-        "kept confidential",
-        "remain confidential",
-        "privacy of complainant",
-        "identity of complainant",
+        "confidentiality", "confidential",
+        "identity confidential", "identities confidential",
+        "kept confidential", "remain confidential",
+        "privacy of complainant", "identity of complainant",
         "identity of the complainant",
-        "identity of a person",
         "complainant identity",
         "confidentiality of complaint",
         "confidentiality of proceedings",
         "who can know about the complaint",
         "will my identity be revealed",
-        "will the complainant's identity",
         "is the complaint confidential"
     ]
 
@@ -409,34 +509,27 @@ The ICC is responsible for handling workplace sexual-harassment complaints and c
         ])
     ):
 
-        return {
-            "answer": """
-**Yes.** According to the Zyro Dynamics POSH Policy, strict confidentiality must be maintained throughout the sexual-harassment complaint and inquiry process.
+        return make_answer("""
+**Yes.** The Zyro Dynamics POSH Policy requires strict confidentiality throughout the complaint and inquiry process.
 
 The following information must remain confidential:
 
-- The identity of the **complainant** (the person who files the complaint).
-- The identity of the **respondent** (the person against whom the complaint is made).
-- The identities of all **witnesses**.
-- The inquiry proceedings.
-- The inquiry findings and recommendations.
-
-**Who can access this information?**
+- The identity of the complainant.
+- The identity of the respondent.
+- The identities of witnesses.
+- Inquiry proceedings.
+- Inquiry findings and recommendations.
 
 Disclosure is permitted only to people directly involved in the matter or those who need the information to implement the recommendations.
 
-**What happens if confidentiality is breached?**
-
-A breach of confidentiality is itself considered a disciplinary offence under the POSH Policy.
+A breach of confidentiality is itself a disciplinary offence.
 
 The policy also prohibits retaliation against anyone who files a complaint, participates in an inquiry, or reports a concern in good faith.
-""",
-            "sources": [
-                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
-            ]
-        }
+""", [3])
 
-    # POSH DISCIPLINARY ACTION
+    # --------------------------------------------------
+    # POSH: DISCIPLINARY ACTION
+    # --------------------------------------------------
 
     disciplinary_terms = [
         "disciplinary action",
@@ -457,7 +550,6 @@ The policy also prohibits retaliation against anyone who files a complaint, part
         "consequences of sexual harassment",
         "sanctions for sexual harassment",
         "what happens to the accused",
-        "what happens if an employee is found",
         "termination for sexual harassment"
     ]
 
@@ -469,27 +561,24 @@ The policy also prohibits retaliation against anyone who files a complaint, part
         ])
     ):
 
-        return {
-            "answer": """
-According to the Zyro Dynamics POSH Policy, disciplinary action may be taken against an employee found responsible for sexual harassment, depending on the findings of the Internal Complaints Committee (ICC).
+        return make_answer("""
+According to the Zyro Dynamics POSH Policy, disciplinary action may be taken depending on the findings and recommendations of the Internal Complaints Committee (ICC).
 
-The possible consequences include:
+Possible consequences include:
 
-1. **Written warning:** A formal written warning along with sensitisation and inclusion training.
-2. **Suspension without pay:** The employee may be suspended without receiving salary during the suspension period.
-3. **Transfer:** The employee may be transferred to another team, project, or work location.
-4. **Withholding benefits:** Promotion, salary increments, or other employment benefits may be withheld.
-5. **Termination:** The employee's employment may be terminated.
-6. **Referral to law enforcement:** If the conduct constitutes a criminal offence under Indian law, the matter may be referred to law enforcement authorities.
+1. Written warning with sensitisation and inclusion training.
+2. Suspension without pay.
+3. Transfer to another team, project, or location.
+4. Withholding promotion, salary increments, or other employment benefits.
+5. Termination of employment.
+6. Referral to law enforcement if the conduct constitutes a criminal offence under Indian law.
 
-**Important:** The appropriate action depends on the ICC's inquiry findings and recommendations. These measures are specified in the company's POSH Policy.
-""",
-            "sources": [
-                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
-            ]
-        }
+The appropriate action depends on the ICC inquiry findings and recommendations.
+""", [3])
 
-    # POSH PROTECTION FROM RETALIATION
+    # --------------------------------------------------
+    # POSH: PROTECTION FROM RETALIATION
+    # --------------------------------------------------
 
     retaliation_terms = [
         "protection from retaliation",
@@ -514,15 +603,14 @@ The possible consequences include:
         ])
     ):
 
-        return {
-            "answer": """
+        return make_answer("""
 The Zyro Dynamics POSH Policy strictly prohibits retaliation against anyone who:
 
 - Files a sexual-harassment complaint.
 - Participates in an ICC inquiry.
 - Reports a suspected violation in good faith.
 
-**Examples of prohibited retaliation include:**
+Examples of prohibited retaliation include:
 
 - Adverse performance ratings.
 - Demotion or transfer.
@@ -530,97 +618,78 @@ The Zyro Dynamics POSH Policy strictly prohibits retaliation against anyone who:
 - Threats.
 - Termination.
 
-Retaliation against a person involved in reporting or investigating a complaint is treated as a **separate and serious disciplinary matter** under the policy.
-""",
-            "sources": [
-                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
-            ]
-        }
+Retaliation is treated as a separate and serious disciplinary matter under the policy.
+""", [2, 3])
 
-    # POSH COMPLAINT PROCEDURE
+    # --------------------------------------------------
+    # POSH: COMPLAINT PROCEDURE
+    # Only questions about reporting or filing a complaint
+    # should trigger this answer.
+    # --------------------------------------------------
 
-    posh_complaint_terms = [
-        "sexual harassment",
-        "posh",
-        "harassment at workplace",
-        "harassed at work",
-        "harassment complaint",
+    complaint_intent = any(term in q for term in [
         "file a complaint",
-        "complaint with icc",
-        "icc complaint",
+        "submit a complaint",
+        "make a complaint",
+        "complaint procedure",
+        "complaint process",
+        "how to complain",
+        "how can i complain",
+        "how do i report",
+        "how to report",
         "report sexual harassment",
-        "experience harassment",
-        "what should an employee do if they experience",
-        "how to report harassment",
-        "how can i complain"
-    ]
+        "report harassment",
+        "experience sexual harassment",
+        "experiences sexual harassment",
+        "what should i do if",
+        "what should an employee do if"
+    ])
 
-    if any(term in q for term in posh_complaint_terms):
+    if (
+        complaint_intent
+        and any(term in q for term in [
+            "harassment", "posh", "icc", "sexual",
+            "workplace", "complaint", "report"
+        ])
+    ):
 
-        return {
-            "answer": """
-If an employee experiences sexual harassment, they can submit a **written complaint to the Internal Complaints Committee (ICC)** under the Zyro Dynamics POSH Policy.
+        return make_answer("""
+If an employee experiences sexual harassment, they can submit a written complaint to the Internal Complaints Committee (ICC).
 
 ### Step 1: Submit a written complaint
 
 - Submit the complaint by email to the ICC or as a sealed letter addressed to the Presiding Officer at the HR office at Zyro Dynamics HQ.
-- The complaint should be submitted within **3 months of the incident**, or within 3 months of the last incident if there is a series of incidents.
+- Submit it within 3 months of the incident, or within 3 months of the last incident in a series.
 - In exceptional circumstances, the ICC may extend this period by a further 3 months upon a written application explaining the reasons.
 
-**ICC email clarification:** The email address in the extracted policy appears with a formatting error as `icc@zyrodyn amics.com`. Please verify the correct address with HR before sending a complaint. You can use the sealed-letter option described above.
+**ICC email clarification:** The address in the extracted policy appears as `icc@zyrodyn amics.com`. Verify the correct address with HR before sending a complaint. The sealed-letter option is also available.
 
-### Step 2: ICC acknowledges the complaint
+### Step 2: Acknowledgement
 
-The ICC acknowledges receipt and forwards a copy of the complaint to the respondent within **7 working days**.
+The ICC acknowledges receipt and forwards a copy to the respondent within 7 working days.
 
-### Step 3: Respondent submits a response
+### Step 3: Respondent's reply
 
-The respondent is given **10 working days** to submit a written response.
+The respondent gets 10 working days to submit a written response.
 
-### Step 4: ICC conducts an inquiry
+### Step 4: Inquiry
 
-The ICC conducts an inquiry, including hearings with both parties, witnesses, and a review of evidence.
-
-The inquiry is to be completed within **60 days**.
+The ICC conducts hearings with both parties, considers witnesses, and reviews evidence. The inquiry is to be completed within 60 days.
 
 ### Step 5: Inquiry report
 
-The ICC submits its inquiry report and recommendations to management within **10 days of completing the inquiry**.
+The ICC submits its report and recommendations to management within 10 days of completing the inquiry.
 
-### Step 6: Management takes action
+### Step 6: Management action
 
 Management implements the recommended action based on the ICC's findings.
 
-### Confidentiality
+The policy also requires confidentiality and prohibits retaliation against people who report complaints or participate in inquiries in good faith.
+""", [2, 3])
 
-The identities of the complainant, respondent, and witnesses, as well as the inquiry proceedings, findings, and recommendations, must remain strictly confidential.
-
-### Protection from retaliation
-
-The company prohibits retaliation against anyone who files a complaint, participates in an inquiry, or reports a suspected violation in good faith.
-
-Retaliation such as threats, demotion, transfer, isolation, adverse performance ratings, or termination is treated as a separate and serious disciplinary matter.
-
-### Possible consequences
-
-Depending on the ICC's findings, action against the respondent may include:
-
-- Written warning and mandatory sensitisation training.
-- Suspension without pay.
-- Transfer to another team, project, or location.
-- Withholding promotion, increments, or benefits.
-- Termination of employment.
-- Referral to law enforcement if the conduct constitutes a criminal offence under applicable Indian law.
-
-**Remember:** Employees can approach the ICC through the complaint procedure described in the POSH Policy.
-""",
-            "sources": [
-                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2),
-                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
-            ]
-        }
-
+    # --------------------------------------------------
     # WORKING HOURS
+    # --------------------------------------------------
 
     working_terms = [
         "working hours", "work hours", "hours per day",
@@ -632,91 +701,76 @@ Depending on the ICC's findings, action against the respondent may include:
 
     if any(term in q for term in working_terms):
 
-        return {
-            "answer": """
-According to the Employee Handbook, employees are expected to complete a minimum of **9 working hours per day**.
+        return make_answer("""
+According to the Employee Handbook, employees are expected to complete a minimum of 9 working hours per day.
 
-The standard schedule is:
+### Standard schedule
 
-- **Working days:** Monday to Friday
-- **Office hours:** 9:30 AM to 6:30 PM IST
-- **Unpaid lunch break:** 30 minutes
-- **Minimum expected working time:** 9 hours per day
+- Working days: Monday to Friday.
+- Office hours: 9:30 AM to 6:30 PM IST.
+- Unpaid lunch break: 30 minutes.
+- Stated minimum working time: 9 hours per day.
 
-**Important clarification:**
+**Important clarification:** There is an inconsistency in the handbook. The 9:30 AM to 6:30 PM schedule is 9 hours in total. After subtracting the 30-minute unpaid lunch break, the actual working time is 8.5 hours. However, the handbook separately states a minimum of 9 working hours.
 
-There is an inconsistency in the handbook.
+Employees should confirm the correct expected working duration with HR.
 
-The schedule from 9:30 AM to 6:30 PM is 9 hours in total.
-After subtracting the 30-minute unpaid lunch break, the actual working time is 8.5 hours.
+### Flexible working hours
 
-However, the handbook separately states that employees must complete a minimum of 9 working hours each day.
+Employees at grade L3 and above may opt for flexible hours within the 10:00 AM to 4:00 PM core band, subject to written manager approval.
+""", [3, 4], "01_Employee_Handbook.pdf")
 
-Employees should confirm the correct expected working duration with the HR department.
-
-**Flexible working hours:**
-
-Employees at grade L3 and above may opt for flexible working hours within the 10:00 AM to 4:00 PM core band, subject to written approval from their reporting manager.
-""",
-            "sources": [
-                ("01_Employee_Handbook.pdf", 3),
-                ("01_Employee_Handbook.pdf", 4)
-            ]
-        }
-
+    # --------------------------------------------------
     # CASH ACCEPTANCE
+    # --------------------------------------------------
 
     if "cash" in q and any(term in q for term in [
         "vendor", "employee", "accept", "receive", "gift"
     ]):
 
-        return {
-            "answer": """
-Accepting cash from any party is **strictly prohibited**.
+        return make_answer("""
+Accepting cash from any party is strictly prohibited.
 
-The Code of Conduct states that accepting cash is never permitted.
-Violations may result in immediate disciplinary action.
+The Code of Conduct states that accepting cash is never permitted. Violations may result in immediate disciplinary action.
 
 The company follows a zero-tolerance approach to accepting cash.
-""",
-            "sources": [("04_Code_of_Conduct.pdf", 3)]
-        }
+""", [3], "04_Code_of_Conduct.pdf")
 
+    # --------------------------------------------------
     # CONFIDENTIAL INFORMATION
+    # --------------------------------------------------
 
     if any(term in q for term in [
         "confidential information", "confidential data",
         "company information", "data leak"
     ]):
 
-        return {
-            "answer": """
+        return make_answer("""
 Employees must share confidential information only when there is an authorised business need.
 
 Confidential information includes:
 
-- Customer and prospect data
-- Product roadmaps
-- Pricing and financial figures
-- HR records
-- Business strategies
-- Source code and other non-public information
+- Customer and prospect data.
+- Product roadmaps.
+- Pricing and financial figures.
+- HR records.
+- Business strategies.
+- Source code and other non-public information.
 
 Employees must not post company information on social media, share it through personal devices, or disclose it to the media.
 
 When leaving the company, employees must return or delete confidential documents and credentials as directed by IT or HR.
 
 Violations may result in disciplinary action up to and including termination and may also attract civil or criminal liability under applicable law.
-""",
-            "sources": [("04_Code_of_Conduct.pdf", 2)]
-        }
+""", [2], "04_Code_of_Conduct.pdf")
 
+    # --------------------------------------------------
     # SOCIAL MEDIA
+    # --------------------------------------------------
 
     if "social media" in q:
 
-        return {
-            "answer": """
+        return make_answer("""
 Employees must not share confidential company information, internal communications, client names, product screenshots, or financial information on social media.
 
 Employees must not present personal opinions as the official position of the company unless authorised by Marketing.
@@ -726,67 +780,53 @@ Negative commentary or criticism of colleagues, management, or clients on social
 Employees should include this disclaimer when expressing personal views:
 
 **"Views expressed are my own and do not represent Zyro Dynamics."**
-""",
-            "sources": [("04_Code_of_Conduct.pdf", 3)]
-        }
+""", [3], "04_Code_of_Conduct.pdf")
 
+    # --------------------------------------------------
     # REPORTING CODE OF CONDUCT VIOLATIONS
+    # --------------------------------------------------
 
     if any(term in q for term in [
         "report violation", "reporting violation",
-        "whistleblower", "retaliation",
-        "report misconduct", "report a concern",
-        "report a complaint"
+        "whistleblower", "report misconduct",
+        "report a concern", "report code of conduct"
     ]):
 
-        return {
-            "answer": """
-Employees can report suspected Code of Conduct violations through the following channels:
+        return make_answer("""
+Employees can report suspected Code of Conduct violations through:
 
 1. **Reporting Manager:** Report directly or through email.
+2. **HR Grievance Cell:** hr.grievance@acruxdynamics.com.
+3. **Anonymous Whistleblower Portal:** whistle.acruxdynamics.com.
+4. **Chief People Officer:** marta@acruxdynamics.com.
 
-2. **HR Grievance Cell:** hr.grievance@acruxdynamics.com
-   This channel is strictly confidential.
+Employees who report violations in good faith are protected. Retaliation against a good-faith reporter is itself a violation and may result in serious disciplinary action.
+""", [3], "04_Code_of_Conduct.pdf")
 
-3. **Anonymous Whistleblower Portal:**
-   whistle.acruxdynamics.com
-   Employees can report anonymously.
-
-4. **Chief People Officer:** marta@acruxdynamics.com
-   This channel is confidential.
-
-**Protection from retaliation:**
-
-Employees who report violations in good faith are protected.
-Retaliation against a good-faith reporter is itself a violation and may result in serious disciplinary action.
-""",
-            "sources": [("04_Code_of_Conduct.pdf", 3)]
-        }
-
+    # --------------------------------------------------
     # CONFLICT OF INTEREST
+    # --------------------------------------------------
 
     if "conflict of interest" in q:
 
-        return {
-            "answer": """
+        return make_answer("""
 Employees must disclose any conflict of interest in writing to their manager and HR immediately.
 
-Important requirements include:
+Important requirements:
 
 - Financial interests in competitors, customers, or suppliers require written clearance from Legal & Compliance.
 - Immediate family members employed by a competitor or vendor must be disclosed to HR.
 - Paid outside employment or consulting requires prior written approval from the Chief People Officer.
-""",
-            "sources": [("04_Code_of_Conduct.pdf", 2)]
-        }
+""", [2], "04_Code_of_Conduct.pdf")
 
+    # --------------------------------------------------
     # GIFTS AND HOSPITALITY
+    # --------------------------------------------------
 
     if "gift" in q or "hospitality" in q:
 
-        return {
-            "answer": """
-The Code of Conduct specifies the following gift and hospitality rules:
+        return make_answer("""
+The Code of Conduct specifies these gift and hospitality rules:
 
 - Gifts below ₹1,000 are permitted if declared to the manager.
 - Gifts above ₹1,000 are not permitted and must be declined or surrendered to HR.
@@ -794,19 +834,18 @@ The Code of Conduct specifies the following gift and hospitality rules:
 - Vendor-sponsored domestic travel is not permitted without prior written approval from the CFO.
 - Branded gifts to clients require Finance pre-approval and must be below ₹2,000 per item.
 - Accepting cash from any party is never permitted.
-""",
-            "sources": [("04_Code_of_Conduct.pdf", 3)]
-        }
+""", [3], "04_Code_of_Conduct.pdf")
 
+    # --------------------------------------------------
     # WORK FROM HOME
+    # --------------------------------------------------
 
     if any(term in q for term in [
         "work from home", "hybrid work",
         "remote work", "wfh"
     ]):
 
-        return {
-            "answer": """
+        return make_answer("""
 According to the Work From Home Policy:
 
 - **Hybrid WFH:** Employees at grade L3 and above may work remotely for up to 3 days per week.
@@ -815,16 +854,15 @@ According to the Work From Home Policy:
 - **Emergency WFH:** Available to all employees as directed by HR.
 
 Employees must also have completed at least 6 months of continuous service and have a recent performance rating of Meets Expectations or above to satisfy the stated eligibility criteria.
-""",
-            "sources": [("03_Work_From_Home_Policy.pdf", 2)]
-        }
+""", [2], "03_Work_From_Home_Policy.pdf")
 
+    # --------------------------------------------------
     # ANNUAL LEAVE
+    # --------------------------------------------------
 
     if "annual leave" in q or "earned leave" in q:
 
-        return {
-            "answer": """
+        return make_answer("""
 According to the Leave Policy:
 
 - Employees become eligible for earned leave after completing one year of continuous service and 240 working days.
@@ -835,16 +873,14 @@ According to the Leave Policy:
 - During probation, earned leave is credited at 0.5 days per month and becomes available after confirmation.
 
 Please refer to the Leave Policy for the applicable conditions and procedures.
-""",
-            "sources": [("02_Leave_Policy.pdf", 2)]
-        }
+""", [2], "02_Leave_Policy.pdf")
 
     return None
 
 
-# --------------------------------------------------
-# HR QUESTION CHECK
-# --------------------------------------------------
+# ==================================================
+# 10. CHECK WHETHER QUESTION IS HR-RELATED
+# ==================================================
 
 def is_likely_hr_question(question):
 
@@ -856,7 +892,10 @@ def is_likely_hr_question(question):
         "remote", "wfh", "probation", "resignation",
         "termination", "reimbursement", "travel",
         "expense", "working hours", "working days",
-        "posh", "icc", "complaint", "retaliation"
+        "posh", "icc", "complaint", "retaliation",
+        "onboarding", "separation", "performance",
+        "appraisal", "security", "password",
+        "compensation", "bonus", "allowance"
     ]
 
     q = question.lower()
@@ -864,9 +903,9 @@ def is_likely_hr_question(question):
     return any(keyword in q for keyword in keywords)
 
 
-# --------------------------------------------------
-# DISPLAY SOURCES
-# --------------------------------------------------
+# ==================================================
+# 11. DISPLAY SOURCES
+# ==================================================
 
 def display_sources(sources):
 
@@ -876,12 +915,45 @@ def display_sources(sources):
     st.markdown("**Sources:**")
 
     for source, page in sources:
-        st.markdown(f"- `{source}` (Page {page})")
+
+        st.markdown(
+            f"- `{source}` (Page {page})"
+        )
 
 
-# --------------------------------------------------
-# USER INTERFACE
-# --------------------------------------------------
+# ==================================================
+# 12. DISPLAY RETRIEVED EXCERPTS
+# ==================================================
+
+def format_retrieved_results(results):
+
+    answer = (
+        "I couldn't match this question to a predefined answer. "
+        "Here are the most relevant excerpts retrieved from the HR "
+        "policy documents. Please read the cited sections carefully:\n\n"
+    )
+
+    seen_sources = set()
+
+    for result in results:
+
+        answer += (
+            f"### {result['source']} — Page {result['page']}\n\n"
+            f"{result['text']}\n\n"
+            "---\n\n"
+        )
+
+        seen_sources.add((
+            result["source"],
+            result["page"]
+        ))
+
+    return answer, sorted(seen_sources)
+
+
+# ==================================================
+# 13. USER INTERFACE
+# ==================================================
 
 st.title("📚 HR Policy Assistant")
 
@@ -901,8 +973,8 @@ with st.sidebar:
     This chatbot uses Retrieval-Augmented Generation (RAG)
     to search the company's HR policy PDF documents.
 
-    It retrieves relevant policy information and provides
-    answers with document and page references.
+    It provides predefined answers for common policy questions
+    and retrieves relevant policy excerpts for other questions.
     """)
 
     st.divider()
@@ -922,10 +994,16 @@ with st.sidebar:
     - Travel and Expense Policy
     """)
 
+    st.divider()
 
-# --------------------------------------------------
-# LOAD THE RAG SYSTEM
-# --------------------------------------------------
+    if st.button("Clear chat", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
+
+# ==================================================
+# 14. LOAD THE RAG SYSTEM
+# ==================================================
 
 with st.spinner("Loading HR policy documents..."):
 
@@ -942,9 +1020,9 @@ if model is None:
     st.stop()
 
 
-# --------------------------------------------------
-# CHAT HISTORY
-# --------------------------------------------------
+# ==================================================
+# 15. CHAT HISTORY
+# ==================================================
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -956,9 +1034,9 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-# --------------------------------------------------
-# CHAT INPUT
-# --------------------------------------------------
+# ==================================================
+# 16. CHAT INPUT AND ANSWER PROCESSING
+# ==================================================
 
 question = st.chat_input(
     "Ask your HR policy question here..."
@@ -979,6 +1057,8 @@ if question:
 
         with st.spinner("Searching HR policy documents..."):
 
+            # First: check predefined answers.
+
             direct_result = get_direct_answer(question)
 
             if direct_result:
@@ -987,6 +1067,8 @@ if question:
 
                 st.markdown(answer)
                 display_sources(direct_result["sources"])
+
+            # Second: reject unrelated questions.
 
             elif not is_likely_hr_question(question):
 
@@ -999,6 +1081,8 @@ Please ask an HR-related question.
 
                 st.markdown(answer)
 
+            # Third: retrieve relevant policy content.
+
             else:
 
                 results = retrieve_documents(
@@ -1010,34 +1094,20 @@ Please ask an HR-related question.
 
                 if results:
 
-                    answer = (
-                        "Here are the most relevant excerpts "
-                        "from the HR policy documents:\n\n"
+                    answer, sources = format_retrieved_results(
+                        results
                     )
 
-                    seen_sources = set()
-
-                    for result in results:
-
-                        answer += (
-                            f"**{result['source']} — "
-                            f"Page {result['page']}**\n\n"
-                            f"{result['text']}\n\n---\n\n"
-                        )
-
-                        seen_sources.add((
-                            result["source"],
-                            result["page"]
-                        ))
-
                     st.markdown(answer)
-                    display_sources(sorted(seen_sources))
+                    display_sources(sources)
 
                 else:
 
                     answer = """
 I could not find sufficiently relevant information
 in the HR policy documents.
+
+I don't want to guess or provide incorrect policy information.
 
 Please try rephrasing your question or contact HR
 for clarification.
