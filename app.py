@@ -7,7 +7,6 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import faiss
 import numpy as np
-import re
 
 # --------------------------------------------------
 # PAGE CONFIGURATION
@@ -79,6 +78,7 @@ def load_rag():
                     })
 
         except Exception as error:
+
             st.warning(
                 f"Could not read {pdf_path.name}: {error}"
             )
@@ -147,36 +147,43 @@ def load_rag():
 
 
 # --------------------------------------------------
-# INITIALIZE APPLICATION
+# NORMALIZE SOURCE CITATIONS
 # --------------------------------------------------
 
-with st.spinner("Loading HR policy documents and AI models..."):
+def normalize_sources(source_items):
 
-    chunks, embedder, index, language_model = load_rag()
+    normalized = []
+    seen = set()
 
-if chunks is None:
+    for item in source_items or []:
 
-    st.error(
-        "HR policy PDFs were not found. Please add the PDF files "
-        "to the hr_policies folder in your GitHub repository."
-    )
+        if isinstance(item, dict):
 
-    st.stop()
+            source = item.get("source")
+            page = item.get("page")
 
-st.success("HR policy assistant is ready!")
+        elif isinstance(item, (tuple, list)) and len(item) == 2:
 
+            source, page = item
 
-# --------------------------------------------------
-# CHAT HISTORY
-# --------------------------------------------------
+        else:
+            continue
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+        if source is None or page is None:
+            continue
 
-for message in st.session_state.messages:
+        key = (source, page)
 
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        if key not in seen:
+
+            normalized.append({
+                "source": source,
+                "page": page
+            })
+
+            seen.add(key)
+
+    return normalized
 
 
 # --------------------------------------------------
@@ -338,6 +345,40 @@ def get_policy_answer(question):
 
 
 # --------------------------------------------------
+# INITIALIZE APPLICATION
+# --------------------------------------------------
+
+with st.spinner("Loading HR policy documents and AI models..."):
+
+    chunks, embedder, index, language_model = load_rag()
+
+if chunks is None:
+
+    st.error(
+        "HR policy PDFs were not found. Please add the PDF files "
+        "to the hr_policies folder in your GitHub repository."
+    )
+
+    st.stop()
+
+st.success("HR policy assistant is ready!")
+
+
+# --------------------------------------------------
+# CHAT HISTORY
+# --------------------------------------------------
+
+if "messages" not in st.session_state:
+
+    st.session_state.messages = []
+
+for message in st.session_state.messages:
+
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+
+# --------------------------------------------------
 # USER QUESTION
 # --------------------------------------------------
 
@@ -482,28 +523,23 @@ Answer:
             )
 
             # --------------------------------------------------
-            # SOURCE CITATIONS
+            # COLLECT RETRIEVED SOURCES
             # --------------------------------------------------
 
             sources = []
 
-            seen_sources = set()
-
             for item in retrieved:
 
-                source_key = (
-                    item["source"],
-                    item["page"]
-                )
+                sources.append({
+                    "source": item["source"],
+                    "page": item["page"]
+                })
 
-                if source_key not in seen_sources:
+    # --------------------------------------------------
+    # NORMALIZE SOURCES BEFORE DISPLAY
+    # --------------------------------------------------
 
-                    sources.append({
-                        "source": item["source"],
-                        "page": item["page"]
-                    })
-
-                    seen_sources.add(source_key)
+    sources = normalize_sources(sources)
 
     # --------------------------------------------------
     # PREPARE FINAL RESPONSE
@@ -527,6 +563,7 @@ Answer:
     # --------------------------------------------------
 
     with st.chat_message("assistant"):
+
         st.markdown(response)
 
     st.session_state.messages.append({
