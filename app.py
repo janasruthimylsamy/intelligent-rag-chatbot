@@ -52,22 +52,140 @@ PDF_FOLDER = Path("hr_policies")
 # --------------------------------------------------
 
 def clean_text(text):
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    """Clean extracted PDF text while preserving useful line breaks."""
+
+    text = text.replace("\x00", " ")
+    text = text.replace("\ufeff", " ")
+    text = re.sub(r"[^\S\n]+", " ", text)
+
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+    return "\n".join(lines)
 
 
 def get_words(text):
+
     stop_words = {
         "the", "is", "are", "a", "an", "and", "or",
         "of", "to", "in", "at", "for", "what", "how",
         "many", "does", "do", "can", "i", "we", "you",
         "with", "on", "be", "it", "this", "that",
-        "who", "which", "when", "where", "about"
+        "who", "which", "when", "where", "about",
+        "under", "from", "by", "as", "their", "they",
+        "them", "has", "have", "had", "was", "were",
+        "being", "been", "will", "would", "should",
+        "could", "employee", "employees", "zyro",
+        "dynamics", "policy", "policies", "company",
+        "main", "types", "regarding", "responsibilities",
+        "actions", "considered", "following"
     }
 
-    words = set(re.findall(r"[a-zA-Z0-9]+", text.lower()))
+    words = set(
+        re.findall(r"[a-zA-Z0-9]+", text.lower())
+    )
 
     return words - stop_words
+
+
+# --------------------------------------------------
+# SMART CHUNKING
+# --------------------------------------------------
+
+def create_chunks(documents):
+
+    chunks = []
+
+    chunk_size = 900
+
+    for doc in documents:
+
+        text = doc["text"]
+
+        # Split text into sentences while preserving bullet-like lines.
+
+        sentences = re.split(
+            r"(?<=[.!?])\s+|\n+",
+            text
+        )
+
+        current_chunk = []
+
+        current_length = 0
+
+        for sentence in sentences:
+
+            sentence = sentence.strip()
+
+            if not sentence:
+                continue
+
+            # Handle unusually long sentences.
+
+            if len(sentence) > chunk_size:
+
+                if current_chunk:
+
+                    chunks.append({
+                        "text": " ".join(current_chunk),
+                        "source": doc["source"],
+                        "page": doc["page"]
+                    })
+
+                    current_chunk = []
+                    current_length = 0
+
+                for start in range(0, len(sentence), chunk_size - 120):
+
+                    piece = sentence[
+                        start:start + chunk_size
+                    ]
+
+                    if piece.strip():
+
+                        chunks.append({
+                            "text": piece,
+                            "source": doc["source"],
+                            "page": doc["page"]
+                        })
+
+                continue
+
+            if (
+                current_length + len(sentence) > chunk_size
+                and current_chunk
+            ):
+
+                chunks.append({
+                    "text": " ".join(current_chunk),
+                    "source": doc["source"],
+                    "page": doc["page"]
+                })
+
+                # Keep the last sentence as context overlap.
+
+                previous_sentence = current_chunk[-1]
+
+                current_chunk = [previous_sentence]
+
+                current_length = len(previous_sentence)
+
+            current_chunk.append(sentence)
+
+            current_length += len(sentence)
+
+        if current_chunk:
+
+            chunks.append({
+                "text": " ".join(current_chunk),
+                "source": doc["source"],
+                "page": doc["page"]
+            })
+
+    return chunks
 
 
 # --------------------------------------------------
@@ -85,13 +203,19 @@ def load_rag():
     for pdf_path in sorted(PDF_FOLDER.glob("*.pdf")):
 
         try:
+
             reader = PdfReader(str(pdf_path))
 
-            for page_number, page in enumerate(reader.pages, start=1):
+            for page_number, page in enumerate(
+                reader.pages,
+                start=1
+            ):
 
-                text = clean_text(page.extract_text() or "")
+                text = clean_text(
+                    page.extract_text() or ""
+                )
 
-                if not text:
+                if not text.strip():
                     continue
 
                 documents.append({
@@ -101,38 +225,18 @@ def load_rag():
                 })
 
         except Exception as error:
-            print(f"Error reading {pdf_path.name}: {error}")
+
+            print(
+                f"Error reading {pdf_path.name}: {error}"
+            )
 
     if not documents:
         return None, None, None
 
-    # Create smaller chunks from each page
+    chunks = create_chunks(documents)
 
-    chunks = []
-
-    chunk_size = 500
-    overlap = 80
-
-    for doc in documents:
-
-        text = doc["text"]
-        start = 0
-
-        while start < len(text):
-
-            chunk_text = text[start:start + chunk_size]
-
-            if chunk_text.strip():
-
-                chunks.append({
-                    "text": chunk_text,
-                    "source": doc["source"],
-                    "page": doc["page"]
-                })
-
-            start += chunk_size - overlap
-
-    # Load the embedding model only once
+    if not chunks:
+        return None, None, None
 
     embedder = SentenceTransformer(
         "sentence-transformers/all-MiniLM-L6-v2"
@@ -150,8 +254,6 @@ def load_rag():
         dtype="float32"
     )
 
-    # Build FAISS index
-
     index = faiss.IndexFlatIP(
         embeddings.shape[1]
     )
@@ -162,19 +264,144 @@ def load_rag():
 
 
 # --------------------------------------------------
+# POLICY DOCUMENT ROUTING
+# --------------------------------------------------
+
+def get_document_filter(question):
+
+    q = question.lower()
+
+    # When a question specifically names the Code of Conduct,
+    # search that policy instead of unrelated HR documents.
+
+    code_terms = [
+        "code of conduct",
+        "conduct policy",
+        "conduct violations",
+        "conduct misconduct",
+        "ethical behaviour",
+        "ethical behavior"
+    ]
+
+    if any(term in q for term in code_terms):
+
+        return "04_Code_of_Conduct.pdf"
+
+    if any(term in q for term in [
+        "work from home", "work-from-home",
+        "wfh", "hybrid work"
+    ]):
+
+        return "03_Work_From_Home_Policy.pdf"
+
+    if any(term in q for term in [
+        "annual leave", "earned leave",
+        "casual leave", "sick leave",
+        "maternity leave", "paternity leave",
+        "bereavement leave", "marriage leave"
+    ]):
+
+        return "02_Leave_Policy.pdf"
+
+    if any(term in q for term in [
+        "sexual harassment", "posh",
+        "harassment complaint"
+    ]):
+
+        return "08_Prevention_of_Sexual_Harassment_Policy.pdf"
+
+    return None
+
+
+# --------------------------------------------------
+# QUERY EXPANSION
+# --------------------------------------------------
+
+def get_expanded_terms(question):
+
+    q = question.lower()
+
+    expanded = set()
+
+    # Related terminology helps retrieve policy sections
+    # that use different wording from the user's question.
+
+    if any(term in q for term in [
+        "misconduct",
+        "unethical",
+        "prohibited",
+        "violations",
+        "wrongdoing"
+    ]):
+
+        expanded.update({
+            "fraud",
+            "bribery",
+            "corruption",
+            "dishonesty",
+            "harassment",
+            "discrimination",
+            "retaliation",
+            "confidentiality",
+            "conflict",
+            "interest",
+            "theft",
+            "falsification",
+            "misuse",
+            "integrity"
+        })
+
+    if any(term in q for term in [
+        "confidentiality",
+        "confidential",
+        "company information"
+    ]):
+
+        expanded.update({
+            "data",
+            "disclosure",
+            "unauthorised",
+            "unauthorized",
+            "privacy",
+            "credentials",
+            "source code"
+        })
+
+    if any(term in q for term in [
+        "conflict of interest",
+        "conflicts of interest"
+    ]):
+
+        expanded.update({
+            "employment",
+            "consulting",
+            "approval",
+            "personal",
+            "financial"
+        })
+
+    return expanded
+
+
+# --------------------------------------------------
 # RETRIEVAL
 # --------------------------------------------------
 
-def retrieve_documents(question, chunks, embedder, index):
+def retrieve_documents(
+    question,
+    chunks,
+    embedder,
+    index
+):
 
     query_embedding = embedder.encode(
         [question],
         normalize_embeddings=True
     ).astype("float32")
 
-    # Search a larger candidate pool
+    # Search more candidates before reranking.
 
-    candidate_count = min(15, len(chunks))
+    candidate_count = min(40, len(chunks))
 
     scores, indices = index.search(
         query_embedding,
@@ -183,36 +410,65 @@ def retrieve_documents(question, chunks, embedder, index):
 
     question_words = get_words(question)
 
+    expanded_terms = get_expanded_terms(question)
+
+    document_filter = get_document_filter(question)
+
     ranked = []
 
-    for similarity, idx in zip(scores[0], indices[0]):
+    for similarity, idx in zip(
+        scores[0],
+        indices[0]
+    ):
 
         if idx < 0:
             continue
 
         chunk = chunks[idx]
 
+        # Restrict results to the requested policy when
+        # the user explicitly identifies that policy.
+
+        if (
+            document_filter
+            and chunk["source"] != document_filter
+        ):
+            continue
+
         chunk_words = get_words(chunk["text"])
 
         if question_words:
 
-            overlap = len(
-                question_words.intersection(chunk_words)
-            ) / len(question_words)
+            overlap = (
+                len(question_words.intersection(chunk_words))
+                / len(question_words)
+            )
 
         else:
             overlap = 0
 
-        # Combine semantic similarity and keyword matching
+        if expanded_terms:
+
+            expansion_match = (
+                len(expanded_terms.intersection(chunk_words))
+                / len(expanded_terms)
+            )
+
+        else:
+            expansion_match = 0
+
+        # Combine semantic similarity and keyword relevance.
 
         final_score = (
-            0.70 * float(similarity)
-            + 0.30 * overlap
+            0.65 * float(similarity)
+            + 0.25 * overlap
+            + 0.10 * expansion_match
         )
 
         ranked.append({
             "chunk": chunk,
-            "score": final_score
+            "score": final_score,
+            "similarity": float(similarity)
         })
 
     ranked.sort(
@@ -220,31 +476,51 @@ def retrieve_documents(question, chunks, embedder, index):
         reverse=True
     )
 
-    # Remove duplicate chunks from the same page
+    # Select relevant chunks while avoiding repeated text.
 
     selected = []
-    seen = set()
+
+    seen_text = set()
+
+    page_counts = {}
 
     for item in ranked:
 
         chunk = item["chunk"]
 
-        key = (
-            chunk["source"],
-            chunk["page"],
-            chunk["text"][:100]
+        text_key = re.sub(
+            r"\s+",
+            " ",
+            chunk["text"].lower()
         )
 
-        if key in seen:
+        if text_key in seen_text:
             continue
 
-        if item["score"] < 0.25:
+        # Ignore weak matches.
+
+        if item["score"] < 0.28:
+            continue
+
+        page_key = (
+            chunk["source"],
+            chunk["page"]
+        )
+
+        # Allow up to two chunks from the same page.
+
+        if page_counts.get(page_key, 0) >= 2:
             continue
 
         selected.append(item)
-        seen.add(key)
 
-        if len(selected) == 3:
+        seen_text.add(text_key)
+
+        page_counts[page_key] = (
+            page_counts.get(page_key, 0) + 1
+        )
+
+        if len(selected) == 5:
             break
 
     return selected
@@ -257,6 +533,7 @@ def retrieve_documents(question, chunks, embedder, index):
 def format_sources(retrieved):
 
     sources = []
+
     seen = set()
 
     for item in retrieved:
@@ -486,11 +763,13 @@ st.success("HR policy assistant is ready!")
 # --------------------------------------------------
 
 if "messages" not in st.session_state:
+
     st.session_state.messages = []
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
+
         st.markdown(message["content"])
 
 
@@ -510,15 +789,18 @@ if question:
     })
 
     with st.chat_message("user"):
+
         st.markdown(question)
 
     with st.chat_message("assistant"):
 
         with st.spinner("Searching HR policy documents..."):
 
-            # Check predefined answers first
+            # Check predefined answers first.
 
-            answer, direct_sources = get_policy_answer(question)
+            answer, direct_sources = get_policy_answer(
+                question
+            )
 
             if direct_sources:
 
@@ -532,8 +814,6 @@ if question:
 
             else:
 
-                # Search the PDF knowledge base
-
                 retrieved = retrieve_documents(
                     question,
                     chunks,
@@ -544,33 +824,35 @@ if question:
                 if not retrieved:
 
                     answer = (
-                        "I could not find a sufficiently relevant "
-                        "answer in the Zyro Dynamics HR policy documents. "
-                        "Please try rephrasing your question or contact HR."
+                        "I could not find sufficiently relevant "
+                        "information in the Zyro Dynamics HR policy "
+                        "documents. Please try rephrasing your question "
+                        "or contact HR."
                     )
 
                     sources = []
 
                 else:
 
-                    # Display relevant retrieved policy text
-
                     answer = (
-                        "Here is the relevant information I found "
+                        "Here are the most relevant excerpts I found "
                         "in the Zyro Dynamics HR policy documents:\n\n"
                     )
 
                     for item in retrieved:
 
+                        chunk = item["chunk"]
+
                         answer += (
-                            "- "
-                            + item["chunk"]["text"]
-                            + "\n\n"
+                            f"**{chunk['source']} — "
+                            f"Page {chunk['page']}**\n\n"
+                            f"{chunk['text']}\n\n"
+                            "---\n\n"
                         )
 
                     sources = format_sources(retrieved)
 
-            # Display citations
+            # Display citations.
 
             response = answer
 
