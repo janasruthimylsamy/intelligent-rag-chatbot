@@ -283,7 +283,6 @@ def get_direct_answer(question):
     q = question.lower()
 
     # ICC MEMBERSHIP
-    # This check must come before the general POSH answer.
 
     membership_terms = [
         "who are the members",
@@ -318,6 +317,64 @@ The ICC is responsible for handling workplace sexual-harassment complaints and c
 """,
             "sources": [
                 ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2)
+            ]
+        }
+
+    # POSH CONFIDENTIALITY
+    # Check this BEFORE the general POSH complaint answer.
+
+    confidentiality_terms = [
+        "confidentiality",
+        "confidential",
+        "identity confidential",
+        "identities confidential",
+        "kept confidential",
+        "remain confidential",
+        "privacy of complainant",
+        "identity of complainant",
+        "identity of the complainant",
+        "identity of a person",
+        "complainant identity",
+        "confidentiality of complaint",
+        "confidentiality of proceedings",
+        "who can know about the complaint",
+        "will my identity be revealed",
+        "will the complainant's identity",
+        "is the complaint confidential"
+    ]
+
+    if (
+        any(term in q for term in confidentiality_terms)
+        and any(term in q for term in [
+            "harassment", "posh", "icc", "complainant",
+            "complaint", "identity", "inquiry", "witness"
+        ])
+    ):
+
+        return {
+            "answer": """
+**Yes.** According to the Zyro Dynamics POSH Policy, strict confidentiality must be maintained throughout the sexual-harassment complaint and inquiry process.
+
+The following information must remain confidential:
+
+- The identity of the **complainant** (the person who files the complaint).
+- The identity of the **respondent** (the person against whom the complaint is made).
+- The identities of all **witnesses**.
+- The inquiry proceedings.
+- The inquiry findings and recommendations.
+
+**Who can access this information?**
+
+Disclosure is permitted only to people directly involved in the matter or those who need the information to implement the recommendations.
+
+**What happens if confidentiality is breached?**
+
+A breach of confidentiality is itself considered a disciplinary offence under the POSH Policy.
+
+The policy also prohibits retaliation against anyone who files a complaint, participates in an inquiry, or reports a concern in good faith.
+""",
+            "sources": [
+                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
             ]
         }
 
