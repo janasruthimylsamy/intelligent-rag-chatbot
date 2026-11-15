@@ -293,6 +293,27 @@ def retrieve_documents(question, model, index, chunks):
 
     selected_document = get_document_filter(question)
 
+    stop_words = {
+        "what", "when", "where", "which", "who", "why",
+        "how", "does", "do", "did", "is", "are", "was",
+        "were", "the", "a", "an", "and", "or", "to",
+        "of", "in", "on", "for", "from", "with", "by",
+        "at", "as", "be", "can", "could", "would",
+        "should", "will", "shall", "has", "have", "had",
+        "i", "we", "they", "he", "she", "it", "my",
+        "our", "their", "me", "us", "this", "that",
+        "these", "those", "please", "tell", "explain",
+        "company", "employee", "employees", "policy",
+        "policies", "information", "regarding", "about",
+        "according", "companys", "company's", "code"
+    }
+
+    question_words = set(
+        re.findall(r"[a-z]{3,}", question.lower())
+    )
+
+    meaningful_terms = question_words - stop_words
+
     results = []
 
     for score, chunk_index in zip(scores[0], indices[0]):
@@ -308,7 +329,18 @@ def retrieve_documents(question, model, index, chunks):
         ):
             continue
 
-        if score < 0.20:
+        # Reject weak semantic matches.
+        if score < 0.30:
+            continue
+
+        chunk_words = set(
+            re.findall(r"[a-z]{3,}", chunk["text"].lower())
+        )
+
+        # Require a meaningful topic-word match.
+        matching_terms = meaningful_terms.intersection(chunk_words)
+
+        if not matching_terms:
             continue
 
         results.append({
@@ -638,7 +670,7 @@ If an employee experiences sexual harassment, they can submit a written complain
 - Submit it within 3 months of the incident, or within 3 months of the last incident in a series.
 - In exceptional circumstances, the ICC may extend this period by a further 3 months upon a written application explaining the reasons.
 
-**ICC email clarification:** The address in the extracted policy appears as `icc@zyrodyn amics.com`. Verify the correct address with HR before sending a complaint. The sealed-letter option is also available.
+**ICC email clarification:** The address in the extracted policy appears as `icc@zyrodyn amics.com`. Verify the correct address with HR before sending. The sealed-letter option is also available.
 
 ### Step 2: Acknowledgement
 
@@ -707,24 +739,14 @@ The handbook identifies the AcruxHR portal for attendance and employee self-serv
     # --------------------------------------------------
 
     working_terms = [
-        "working hours",
-        "work hours",
-        "hours per day",
-        "full-time employee",
-        "full time employee",
-        "how many hours",
-        "working days",
-        "office hours",
-        "office timing",
-        "daily working hours",
-        "expected to work",
-        "standard working schedule",
-        "standard work schedule",
-        "including lunch break",
-        "working schedule",
-        "standard schedule",
-        "work schedule",
-        "lunch break"
+        "working hours", "work hours", "hours per day",
+        "full-time employee", "full time employee",
+        "how many hours", "working days", "office hours",
+        "office timing", "daily working hours",
+        "expected to work", "standard working schedule",
+        "standard work schedule", "including lunch break",
+        "working schedule", "standard schedule",
+        "work schedule", "lunch break"
     ]
 
     if any(term in q for term in working_terms):
@@ -1183,7 +1205,9 @@ def is_likely_hr_question(question):
         "sick", "medical", "insurance", "gratuity",
         "provident", "phishing", "malware",
         "resign", "exit", "review", "benefits",
-        "business trip", "business travel"
+        "business trip", "business travel",
+        "dress code", "dress", "attire",
+        "uniform", "appearance", "grooming"
     ]
 
     q = question.lower()
@@ -1395,13 +1419,14 @@ Please ask an HR-related question.
                 else:
 
                     answer = """
-I could not find sufficiently relevant information
-in the HR policy documents.
+I couldn't find a relevant policy or sufficient information
+about this topic in the available HR documents.
 
 I don't want to guess or provide incorrect policy information.
 
-Please try rephrasing your question or contact HR
-for clarification.
+Please contact the HR team for clarification:
+
+**Email:** hr.helpdesk@acruxdynamics.com
 """
 
             st.markdown(answer)
