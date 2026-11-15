@@ -277,7 +277,10 @@ def get_document_filter(question):
         "conflicts of interest",
         "whistleblower",
         "confidentiality",
-        "confidential company information"
+        "confidential company information",
+        "report violations",
+        "reporting violations",
+        "retaliation"
     ]
 
     if any(term in q for term in code_terms):
@@ -599,8 +602,62 @@ def get_policy_answer(question):
             "- Negative commentary or criticism of colleagues, "
             "management, or clients on social media is prohibited "
             "and may attract disciplinary action.\n"
-            "- Include a personal disclaimer when sharing "
-            "professional opinions publicly."
+            "- When sharing professional opinions publicly, include "
+            "the disclaimer: 'Views expressed are my own and do not "
+            "represent Zyro Dynamics.'"
+        ), [
+            ("04_Code_of_Conduct.pdf", 3)
+        ]
+
+    # --------------------------------------------------
+    # CODE OF CONDUCT — REPORTING VIOLATIONS
+    # IMPORTANT: This must come before general disciplinary answers.
+    # --------------------------------------------------
+
+    if (
+        any(term in q for term in [
+            "report", "reporting", "reported",
+            "whistleblower", "whistle-blower",
+            "retaliation", "retaliate",
+            "fear of retaliation"
+        ])
+        and any(term in q for term in [
+            "violation", "violations", "misconduct",
+            "concern", "concerns", "complaint",
+            "complaints", "report", "reporting",
+            "retaliation", "retaliate", "whistleblower",
+            "whistle-blower", "protected", "protection"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Code of Conduct, "
+            "employees are encouraged and expected to report "
+            "suspected violations without fear of retaliation.\n\n"
+
+            "**Reporting channels:**\n\n"
+
+            "1. **Reporting Manager:** Direct communication or email.\n\n"
+
+            "2. **HR Grievance Cell:** "
+            "hr.grievance@acruxdynamics.com "
+            "(Strictly confidential).\n\n"
+
+            "3. **Anonymous Whistleblower Portal:** "
+            "whistle.acruxdynamics.com "
+            "(Fully anonymous).\n\n"
+
+            "4. **Chief People Officer:** "
+            "marta@acruxdynamics.com "
+            "(Confidential).\n\n"
+
+            "**Protection against retaliation:**\n\n"
+
+            "Employees who raise genuine concerns in good faith "
+            "are protected from retaliation. Retaliation against "
+            "such an employee is itself a violation of the Code "
+            "of Conduct and will be treated as a serious "
+            "disciplinary matter."
         ), [
             ("04_Code_of_Conduct.pdf", 3)
         ]
@@ -735,34 +792,6 @@ def get_policy_answer(question):
             "Finance and cost under Rs. 2,000 per item.\n"
             "- Accepting cash from any party is never permitted "
             "and results in immediate disciplinary action."
-        ), [
-            ("04_Code_of_Conduct.pdf", 3)
-        ]
-
-    # --------------------------------------------------
-    # CODE OF CONDUCT — REPORTING VIOLATIONS
-    # --------------------------------------------------
-
-    if (
-        "code of conduct" in q
-        and any(term in q for term in [
-            "report", "reporting",
-            "whistleblower", "retaliation"
-        ])
-    ):
-
-        return (
-            "According to the Zyro Dynamics Code of Conduct, "
-            "employees are encouraged to report suspected violations "
-            "without fear of retaliation.\n\n"
-            "Reports can be made through:\n"
-            "- Reporting Manager\n"
-            "- HR Grievance Cell\n"
-            "- Anonymous Whistleblower Portal\n"
-            "- Chief People Officer\n\n"
-            "Retaliation against an employee who raises a genuine "
-            "concern in good faith is itself a violation and a "
-            "serious disciplinary matter."
         ), [
             ("04_Code_of_Conduct.pdf", 3)
         ]
