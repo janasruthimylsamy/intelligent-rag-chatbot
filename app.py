@@ -282,6 +282,65 @@ def get_direct_answer(question):
 
     q = question.lower()
 
+    # POSH POLICY COVERAGE
+    # This must come BEFORE the general POSH complaint answer.
+
+    coverage_terms = [
+        "who is covered",
+        "who are covered",
+        "who does the policy cover",
+        "who is covered under",
+        "who comes under",
+        "who does the posh policy apply to",
+        "who does this policy apply to",
+        "who is included",
+        "who are included",
+        "scope of the posh policy",
+        "posh policy scope",
+        "coverage of the posh policy",
+        "people covered under",
+        "persons covered under",
+        "employees covered under",
+        "third party personnel",
+        "third-party personnel"
+    ]
+
+    if any(term in q for term in coverage_terms):
+
+        return {
+            "answer": """
+According to the **Zyro Dynamics POSH Policy**, the policy covers the following categories of people:
+
+### People covered
+
+- Full-time employees.
+- Fixed-term employees.
+- Probationary employees.
+- Contractual employees.
+- Interns.
+- Trainees.
+- Third-party personnel.
+
+### Where does the policy apply?
+
+The policy applies to workplace-related situations in:
+
+- Company offices in India and abroad.
+- Client sites.
+- Coworking spaces.
+- Social, business, and professional events.
+- Business travel.
+- Digital communication channels connected to the workplace.
+
+**Important:** The policy is not limited to permanent or full-time employees. It also covers the other listed employment categories and third-party personnel.
+
+**Source:** Zyro Dynamics Prevention of Sexual Harassment (POSH) Policy, Page 2.
+""",
+            "sources": [
+                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2)
+            ]
+        }
+
     # ICC MEMBERSHIP
 
     membership_terms = [
@@ -378,7 +437,6 @@ The policy also prohibits retaliation against anyone who files a complaint, part
         }
 
     # POSH DISCIPLINARY ACTION
-    # This must come BEFORE the general POSH complaint answer.
 
     disciplinary_terms = [
         "disciplinary action",
