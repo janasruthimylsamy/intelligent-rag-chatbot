@@ -282,100 +282,121 @@ def get_direct_answer(question):
 
     q = question.lower()
 
-    # POSH POLICY
+    # ICC MEMBERSHIP
+    # This check must come before the general POSH answer.
 
-    posh_terms = [
-        "sexual harassment", "posh", "harassment at workplace",
-        "harassed at work", "harassment complaint",
-        "file a complaint", "complaint with icc",
-        "internal complaints committee", "icc complaint",
-        "report sexual harassment", "experience harassment"
+    membership_terms = [
+        "who are the members",
+        "who is on the committee",
+        "who are on the committee",
+        "committee members",
+        "icc members",
+        "members of the icc",
+        "members of internal complaints committee",
+        "internal complaints committee members",
+        "who is in the icc",
+        "who are in the icc",
+        "composition of the icc",
+        "icc composition",
+        "presiding officer",
+        "external member",
+        "internal member"
     ]
 
-    if any(term in q for term in posh_terms):
+    if any(term in q for term in membership_terms):
 
         return {
             "answer": """
-If an employee experiences sexual harassment, they can submit
-a **written complaint to the Internal Complaints Committee (ICC)**
-under the Zyro Dynamics POSH Policy.
+According to the Zyro Dynamics POSH Policy, the **Internal Complaints Committee (ICC)** consists of four members:
+
+1. **Marta** – Presiding Officer and Chief People Officer.
+2. **Pooja Ramachandran** – Internal Member, Legal & Compliance.
+3. **Aryan Kapoor** – Internal Member, Engineering Manager (L6).
+4. **Adv. Preethi Srinivas** – External Member from an external women's rights organisation.
+
+The ICC is responsible for handling workplace sexual-harassment complaints and conducting inquiries in accordance with the POSH Policy.
+""",
+            "sources": [
+                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2)
+            ]
+        }
+
+    # POSH COMPLAINT PROCEDURE
+
+    posh_complaint_terms = [
+        "sexual harassment",
+        "posh",
+        "harassment at workplace",
+        "harassed at work",
+        "harassment complaint",
+        "file a complaint",
+        "complaint with icc",
+        "icc complaint",
+        "report sexual harassment",
+        "experience harassment",
+        "what should an employee do if they experience",
+        "how to report harassment",
+        "how can i complain"
+    ]
+
+    if any(term in q for term in posh_complaint_terms):
+
+        return {
+            "answer": """
+If an employee experiences sexual harassment, they can submit a **written complaint to the Internal Complaints Committee (ICC)** under the Zyro Dynamics POSH Policy.
 
 ### Step 1: Submit a written complaint
 
-- Submit the complaint by email to the ICC or as a sealed letter
-  addressed to the Presiding Officer at the HR office at
-  Zyro Dynamics HQ.
-- The complaint should be submitted within **3 months of the
-  incident**, or within 3 months of the last incident if there
-  is a series of incidents.
-- In exceptional circumstances, the ICC may extend this period
-  by a further 3 months upon a written application explaining
-  the reasons.
+- Submit the complaint by email to the ICC or as a sealed letter addressed to the Presiding Officer at the HR office at Zyro Dynamics HQ.
+- The complaint should be submitted within **3 months of the incident**, or within 3 months of the last incident if there is a series of incidents.
+- In exceptional circumstances, the ICC may extend this period by a further 3 months upon a written application explaining the reasons.
 
-**ICC email clarification:** The email address in the extracted
-policy appears with a formatting error as
-`icc@zyrodyn amics.com`. Please verify the correct address with HR
-before sending a complaint. You can use the sealed-letter option
-described above.
+**ICC email clarification:** The email address in the extracted policy appears with a formatting error as `icc@zyrodyn amics.com`. Please verify the correct address with HR before sending a complaint. You can use the sealed-letter option described above.
 
 ### Step 2: ICC acknowledges the complaint
 
-The ICC acknowledges receipt and forwards a copy of the complaint
-to the respondent within **7 working days**.
+The ICC acknowledges receipt and forwards a copy of the complaint to the respondent within **7 working days**.
 
 ### Step 3: Respondent submits a response
 
-The respondent is given **10 working days** to submit a written
-response.
+The respondent is given **10 working days** to submit a written response.
 
 ### Step 4: ICC conducts an inquiry
 
-The ICC conducts an inquiry, including hearings with both parties,
-witnesses, and a review of evidence.
+The ICC conducts an inquiry, including hearings with both parties, witnesses, and a review of evidence.
 
 The inquiry is to be completed within **60 days**.
 
 ### Step 5: Inquiry report
 
-The ICC submits its inquiry report and recommendations to management
-within **10 days of completing the inquiry**.
+The ICC submits its inquiry report and recommendations to management within **10 days of completing the inquiry**.
 
 ### Step 6: Management takes action
 
-Management implements the recommended action based on the ICC's
-findings.
+Management implements the recommended action based on the ICC's findings.
 
 ### Confidentiality
 
-The identities of the complainant, respondent, and witnesses,
-as well as the inquiry proceedings, findings, and recommendations,
-must remain strictly confidential.
+The identities of the complainant, respondent, and witnesses, as well as the inquiry proceedings, findings, and recommendations, must remain strictly confidential.
 
 ### Protection from retaliation
 
-The company prohibits retaliation against anyone who files a complaint,
-participates in an inquiry, or reports a suspected violation in good
-faith.
+The company prohibits retaliation against anyone who files a complaint, participates in an inquiry, or reports a suspected violation in good faith.
 
-Retaliation such as threats, demotion, transfer, isolation, adverse
-performance ratings, or termination is treated as a separate and
-serious disciplinary matter.
+Retaliation such as threats, demotion, transfer, isolation, adverse performance ratings, or termination is treated as a separate and serious disciplinary matter.
 
 ### Possible consequences
 
-Depending on the ICC's findings, action against the respondent
-may include:
+Depending on the ICC's findings, action against the respondent may include:
 
 - Written warning and mandatory sensitisation training.
 - Suspension without pay.
 - Transfer to another team, project, or location.
 - Withholding promotion, increments, or benefits.
 - Termination of employment.
-- Referral to law enforcement if the conduct constitutes
-  a criminal offence under applicable Indian law.
+- Referral to law enforcement if the conduct constitutes a criminal offence under applicable Indian law.
 
-**Remember:** Employees can approach the ICC through the complaint
-procedure described in the POSH Policy.
+**Remember:** Employees can approach the ICC through the complaint procedure described in the POSH Policy.
 """,
             "sources": [
                 ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 2),
@@ -397,8 +418,7 @@ procedure described in the POSH Policy.
 
         return {
             "answer": """
-According to the Employee Handbook, employees are expected to complete
-a minimum of **9 working hours per day**.
+According to the Employee Handbook, employees are expected to complete a minimum of **9 working hours per day**.
 
 The standard schedule is:
 
@@ -412,20 +432,15 @@ The standard schedule is:
 There is an inconsistency in the handbook.
 
 The schedule from 9:30 AM to 6:30 PM is 9 hours in total.
-After subtracting the 30-minute unpaid lunch break, the actual
-working time is 8.5 hours.
+After subtracting the 30-minute unpaid lunch break, the actual working time is 8.5 hours.
 
-However, the handbook separately states that employees must complete
-a minimum of 9 working hours each day.
+However, the handbook separately states that employees must complete a minimum of 9 working hours each day.
 
-Employees should confirm the correct expected working duration
-with the HR department.
+Employees should confirm the correct expected working duration with the HR department.
 
 **Flexible working hours:**
 
-Employees at grade L3 and above may opt for flexible working hours
-within the 10:00 AM to 4:00 PM core band, subject to written approval
-from their reporting manager.
+Employees at grade L3 and above may opt for flexible working hours within the 10:00 AM to 4:00 PM core band, subject to written approval from their reporting manager.
 """,
             "sources": [
                 ("01_Employee_Handbook.pdf", 3),
@@ -460,8 +475,7 @@ The company follows a zero-tolerance approach to accepting cash.
 
         return {
             "answer": """
-Employees must share confidential information only when there is
-an authorised business need.
+Employees must share confidential information only when there is an authorised business need.
 
 Confidential information includes:
 
@@ -472,15 +486,11 @@ Confidential information includes:
 - Business strategies
 - Source code and other non-public information
 
-Employees must not post company information on social media,
-share it through personal devices, or disclose it to the media.
+Employees must not post company information on social media, share it through personal devices, or disclose it to the media.
 
-When leaving the company, employees must return or delete confidential
-documents and credentials as directed by IT or HR.
+When leaving the company, employees must return or delete confidential documents and credentials as directed by IT or HR.
 
-Violations may result in disciplinary action up to and including
-termination and may also attract civil or criminal liability
-under applicable law.
+Violations may result in disciplinary action up to and including termination and may also attract civil or criminal liability under applicable law.
 """,
             "sources": [("04_Code_of_Conduct.pdf", 2)]
         }
@@ -491,19 +501,13 @@ under applicable law.
 
         return {
             "answer": """
-Employees must not share confidential company information,
-internal communications, client names, product screenshots,
-or financial information on social media.
+Employees must not share confidential company information, internal communications, client names, product screenshots, or financial information on social media.
 
-Employees must not present personal opinions as the official
-position of the company unless authorised by Marketing.
+Employees must not present personal opinions as the official position of the company unless authorised by Marketing.
 
-Negative commentary or criticism of colleagues, management,
-or clients on social media is prohibited and may result
-in disciplinary action.
+Negative commentary or criticism of colleagues, management, or clients on social media is prohibited and may result in disciplinary action.
 
-Employees should include this disclaimer when expressing
-personal views:
+Employees should include this disclaimer when expressing personal views:
 
 **"Views expressed are my own and do not represent Zyro Dynamics."**
 """,
@@ -521,8 +525,7 @@ personal views:
 
         return {
             "answer": """
-Employees can report suspected Code of Conduct violations through
-the following channels:
+Employees can report suspected Code of Conduct violations through the following channels:
 
 1. **Reporting Manager:** Report directly or through email.
 
@@ -539,8 +542,7 @@ the following channels:
 **Protection from retaliation:**
 
 Employees who report violations in good faith are protected.
-Retaliation against a good-faith reporter is itself a violation
-and may result in serious disciplinary action.
+Retaliation against a good-faith reporter is itself a violation and may result in serious disciplinary action.
 """,
             "sources": [("04_Code_of_Conduct.pdf", 3)]
         }
@@ -551,17 +553,13 @@ and may result in serious disciplinary action.
 
         return {
             "answer": """
-Employees must disclose any conflict of interest in writing
-to their manager and HR immediately.
+Employees must disclose any conflict of interest in writing to their manager and HR immediately.
 
 Important requirements include:
 
-- Financial interests in competitors, customers, or suppliers
-  require written clearance from Legal & Compliance.
-- Immediate family members employed by a competitor or vendor
-  must be disclosed to HR.
-- Paid outside employment or consulting requires prior written
-  approval from the Chief People Officer.
+- Financial interests in competitors, customers, or suppliers require written clearance from Legal & Compliance.
+- Immediate family members employed by a competitor or vendor must be disclosed to HR.
+- Paid outside employment or consulting requires prior written approval from the Chief People Officer.
 """,
             "sources": [("04_Code_of_Conduct.pdf", 2)]
         }
@@ -575,13 +573,10 @@ Important requirements include:
 The Code of Conduct specifies the following gift and hospitality rules:
 
 - Gifts below ₹1,000 are permitted if declared to the manager.
-- Gifts above ₹1,000 are not permitted and must be declined
-  or surrendered to HR.
+- Gifts above ₹1,000 are not permitted and must be declined or surrendered to HR.
 - Client-hosted meals are limited to ₹3,000 per person.
-- Vendor-sponsored domestic travel is not permitted without
-  prior written approval from the CFO.
-- Branded gifts to clients require Finance pre-approval
-  and must be below ₹2,000 per item.
+- Vendor-sponsored domestic travel is not permitted without prior written approval from the CFO.
+- Branded gifts to clients require Finance pre-approval and must be below ₹2,000 per item.
 - Accepting cash from any party is never permitted.
 """,
             "sources": [("04_Code_of_Conduct.pdf", 3)]
@@ -598,17 +593,12 @@ The Code of Conduct specifies the following gift and hospitality rules:
             "answer": """
 According to the Work From Home Policy:
 
-- **Hybrid WFH:** Employees at grade L3 and above may work
-  remotely for up to 3 days per week.
-- **Full Remote:** Employees at grade L5 and above may be
-  considered for full remote work on a case-by-case basis.
-- **Ad-hoc WFH:** Employees at grade L3 and above may request
-  up to 2 days per week.
+- **Hybrid WFH:** Employees at grade L3 and above may work remotely for up to 3 days per week.
+- **Full Remote:** Employees at grade L5 and above may be considered for full remote work on a case-by-case basis.
+- **Ad-hoc WFH:** Employees at grade L3 and above may request up to 2 days per week.
 - **Emergency WFH:** Available to all employees as directed by HR.
 
-Employees must also have completed at least 6 months of continuous
-service and have a recent performance rating of Meets Expectations
-or above to satisfy the stated eligibility criteria.
+Employees must also have completed at least 6 months of continuous service and have a recent performance rating of Meets Expectations or above to satisfy the stated eligibility criteria.
 """,
             "sources": [("03_Work_From_Home_Policy.pdf", 2)]
         }
@@ -621,17 +611,14 @@ or above to satisfy the stated eligibility criteria.
             "answer": """
 According to the Leave Policy:
 
-- Employees become eligible for earned leave after completing
-  one year of continuous service and 240 working days.
+- Employees become eligible for earned leave after completing one year of continuous service and 240 working days.
 - The entitlement is 15 days of earned leave.
 - After that, earned leave is credited at 1.25 days per month.
 - Casual leave entitlement is 8 days per year.
 - Sick leave entitlement is 10 days per year.
-- During probation, earned leave is credited at 0.5 days per month
-  and becomes available after confirmation.
+- During probation, earned leave is credited at 0.5 days per month and becomes available after confirmation.
 
-Please refer to the Leave Policy for the applicable conditions
-and procedures.
+Please refer to the Leave Policy for the applicable conditions and procedures.
 """,
             "sources": [("02_Leave_Policy.pdf", 2)]
         }
