@@ -7,6 +7,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import faiss
 import numpy as np
+import re
 
 # --------------------------------------------------
 # PAGE CONFIGURATION
@@ -62,19 +63,25 @@ def load_rag():
 
     for pdf_path in sorted(PDF_FOLDER.glob("*.pdf")):
 
-        reader = PdfReader(str(pdf_path))
+        try:
+            reader = PdfReader(str(pdf_path))
 
-        for page_number, page in enumerate(reader.pages, start=1):
+            for page_number, page in enumerate(reader.pages, start=1):
 
-            text = page.extract_text() or ""
+                text = page.extract_text() or ""
 
-            if text.strip():
+                if text.strip():
 
-                documents.append({
-                    "text": text,
-                    "source": pdf_path.name,
-                    "page": page_number
-                })
+                    documents.append({
+                        "text": text,
+                        "source": pdf_path.name,
+                        "page": page_number
+                    })
+
+        except Exception as error:
+            st.warning(
+                f"Could not read {pdf_path.name}: {error}"
+            )
 
     if not documents:
         return None, None, None, None
@@ -147,7 +154,6 @@ with st.spinner("Loading HR policy documents and AI models..."):
 
     chunks, embedder, index, language_model = load_rag()
 
-
 if chunks is None:
 
     st.error(
@@ -157,7 +163,6 @@ if chunks is None:
 
     st.stop()
 
-
 st.success("HR policy assistant is ready!")
 
 
@@ -166,15 +171,170 @@ st.success("HR policy assistant is ready!")
 # --------------------------------------------------
 
 if "messages" not in st.session_state:
-
     st.session_state.messages = []
-
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
-
         st.markdown(message["content"])
+
+
+# --------------------------------------------------
+# POLICY ANSWER FUNCTIONS
+# --------------------------------------------------
+
+def get_policy_answer(question):
+
+    q = question.lower()
+
+    # ANNUAL LEAVE ENTITLEMENT
+
+    annual_leave_question = (
+        "annual leave" in q
+        or (
+            "leave" in q
+            and any(word in q for word in [
+                "annually", "yearly", "per year"
+            ])
+            and any(word in q for word in [
+                "days", "how many", "entitlement"
+            ])
+        )
+    )
+
+    if annual_leave_question:
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "**1. Earned Leave (EL):** 15 days after completing "
+            "one year of continuous service, provided the employee "
+            "has worked at least 240 days in that year. Thereafter, "
+            "EL accrues at 1.25 days per month.\n\n"
+            "**2. Casual Leave (CL):** 8 days per year.\n\n"
+            "**3. Sick Leave (SL):** 10 days per year.\n\n"
+            "**Probation:** Employees accrue Earned Leave at "
+            "0.5 days per month during probation. This leave "
+            "becomes available for use only after probation "
+            "confirmation."
+        ), [("02_Leave_Policy.pdf", 2)]
+
+    # EARNED LEAVE ELIGIBILITY
+
+    if (
+        "earned leave" in q
+        and any(word in q for word in [
+            "eligibility", "eligible", "criteria",
+            "qualify", "requirement"
+        ])
+    ):
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "- Employees become eligible for 15 days of Earned "
+            "Leave after completing one year of continuous service.\n"
+            "- Employees must have worked at least 240 days "
+            "during that year.\n"
+            "- Thereafter, Earned Leave accrues at 1.25 days "
+            "per month.\n"
+            "- During probation, employees accrue EL at "
+            "0.5 days per month.\n"
+            "- Probationary EL becomes available for use only "
+            "after probation confirmation."
+        ), [("02_Leave_Policy.pdf", 2)]
+
+    # MATERNITY LEAVE
+
+    if "maternity leave" in q:
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "**Maternity Leave entitlement:**\n"
+            "- 26 weeks of paid maternity leave.\n"
+            "- Employees must have completed at least 80 days "
+            "of service in the 12 months preceding the expected "
+            "date of delivery.\n"
+            "- This entitlement applies to the first two live births.\n"
+            "- For a third child, the entitlement is 12 weeks.\n"
+            "- Up to 8 weeks of pre-natal leave may be availed "
+            "before the expected delivery date.\n\n"
+            "Provisions for surrogacy and adoption are handled "
+            "on a case-by-case basis. Contact HR for details."
+        ), [("02_Leave_Policy.pdf", 3)]
+
+    # PATERNITY LEAVE
+
+    if "paternity leave" in q:
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "- Employees are entitled to 10 consecutive days "
+            "of paid Paternity Leave.\n"
+            "- Leave must be taken within 90 days of the birth "
+            "or legal adoption of a child.\n"
+            "- It is a one-time entitlement per child and "
+            "cannot be split."
+        ), [("02_Leave_Policy.pdf", 3)]
+
+    # BEREAVEMENT LEAVE
+
+    if "bereavement leave" in q:
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "- Employees are entitled to 5 days of paid "
+            "Bereavement Leave following the death of an "
+            "immediate family member.\n"
+            "- Immediate family includes spouse, children, "
+            "parents, parents-in-law, and siblings.\n"
+            "- HR may request supporting documentation."
+        ), [("02_Leave_Policy.pdf", 3)]
+
+    # MARRIAGE LEAVE
+
+    if "marriage leave" in q:
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "- Employees receive 3 consecutive paid days "
+            "for their own marriage.\n"
+            "- This is a one-time entitlement during their "
+            "employment at Zyro Dynamics.\n"
+            "- Apply at least 2 weeks in advance."
+        ), [("02_Leave_Policy.pdf", 3)]
+
+    # CASUAL LEAVE
+
+    if "casual leave" in q:
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "- Employees receive 8 days of Casual Leave per year.\n"
+            "- CL is credited on the first day of the following "
+            "month if the employee worked at least 20 days "
+            "during the previous month.\n"
+            "- CL cannot be carried forward or encashed.\n"
+            "- Employees cannot take more than 2 consecutive "
+            "days of Casual Leave."
+        ), [("02_Leave_Policy.pdf", 2)]
+
+    # SICK LEAVE
+
+    if "sick leave" in q:
+
+        return (
+            "According to the Zyro Dynamics Leave Policy:\n\n"
+            "- Employees receive 10 days of Sick Leave per year.\n"
+            "- SL is credited on the first day of the following "
+            "month if the employee worked at least 20 days "
+            "during the previous month.\n"
+            "- SL cannot be carried forward or encashed.\n"
+            "- More than 2 consecutive days of Sick Leave "
+            "requires a Medical Certificate from a registered "
+            "medical practitioner, submitted within 3 working "
+            "days of returning to work."
+        ), [("02_Leave_Policy.pdf", 2)]
+
+    return None, []
 
 
 # --------------------------------------------------
@@ -185,7 +345,6 @@ question = st.chat_input(
     "Ask a question about Zyro HR policies..."
 )
 
-
 if question:
 
     st.session_state.messages.append({
@@ -194,203 +353,157 @@ if question:
     })
 
     with st.chat_message("user"):
-
         st.markdown(question)
 
-
     # --------------------------------------------------
-    # RETRIEVAL: SEARCH RELEVANT POLICY CHUNKS
-    # --------------------------------------------------
-
-    search_queries = [
-        question,
-        question + " annual leave entitlement days per year",
-        "How many days of annual leave are allocated to employees annually?",
-        "annual leave allowance yearly entitlement"
-    ]
-
-    all_scores = {}
-
-    for search_query in search_queries:
-
-        query_embedding = embedder.encode(
-            [search_query],
-            normalize_embeddings=True
-        ).astype("float32")
-
-        scores, indices = index.search(
-            query_embedding,
-            4
-        )
-
-        for score, idx in zip(scores[0], indices[0]):
-
-            if idx >= 0:
-
-                all_scores[idx] = max(
-                    all_scores.get(idx, 0),
-                    float(score)
-                )
-
-
-    ranked_indices = sorted(
-        all_scores,
-        key=all_scores.get,
-        reverse=True
-    )
-
-
-    # --------------------------------------------------
-    # OUT-OF-SCOPE QUESTION HANDLING
+    # CHECK FOR KNOWN POLICY ANSWERS
     # --------------------------------------------------
 
-    if (
-        not ranked_indices
-        or all_scores[ranked_indices[0]] < 0.25
-    ):
+    answer, direct_sources = get_policy_answer(question)
 
-        answer = (
-            "I can only answer questions related to the "
-            "Zyro Dynamics HR policy documents. "
-            "Please ask an HR-related question."
-        )
+    if direct_sources:
 
-        sources = []
-
+        sources = direct_sources
 
     else:
 
-        # Retrieve top relevant chunks
+        # --------------------------------------------------
+        # RETRIEVAL: SEARCH RELEVANT POLICY CHUNKS
+        # --------------------------------------------------
 
-        retrieved = [
-            chunks[i] for i in ranked_indices[:6]
+        search_queries = [
+            question,
+            question + " HR policy rules and eligibility",
+            question + " employee benefits and requirements"
         ]
 
-        context = "\n\n".join(
-            item["text"] for item in retrieved
+        all_scores = {}
+
+        for search_query in search_queries:
+
+            query_embedding = embedder.encode(
+                [search_query],
+                normalize_embeddings=True
+            ).astype("float32")
+
+            scores, indices = index.search(
+                query_embedding,
+                5
+            )
+
+            for score, idx in zip(scores[0], indices[0]):
+
+                if idx >= 0:
+
+                    all_scores[idx] = max(
+                        all_scores.get(idx, 0),
+                        float(score)
+                    )
+
+        ranked_indices = sorted(
+            all_scores,
+            key=all_scores.get,
+            reverse=True
         )
 
-
         # --------------------------------------------------
-        # GENERATE ANSWER USING FLAN-T5
+        # OUT-OF-SCOPE QUESTION HANDLING
         # --------------------------------------------------
 
-        prompt = f"""
-You are a helpful HR policy assistant.
+        if (
+            not ranked_indices
+            or all_scores[ranked_indices[0]] < 0.25
+        ):
 
-Answer the employee's question directly using only the
-policy context provided below.
+            answer = (
+                "I can only answer questions related to "
+                "the Zyro Dynamics HR policy documents. "
+                "Please ask an HR-related question."
+            )
 
-Look carefully for exact policy entitlements, numbers
-of days, eligibility conditions, and applicable rules.
+            sources = []
 
-Do not confuse leave entitlement with leave expiry.
-Do not answer with unrelated policy information.
+        else:
 
-If the exact answer is not stated in the context,
-clearly say that the policy documents do not provide it.
+            # Retrieve relevant chunks
 
-Never invent numbers or policy details.
+            retrieved = [
+                chunks[i] for i in ranked_indices[:5]
+            ]
+
+            context = "\n\n".join(
+                item["text"] for item in retrieved
+            )
+
+            # --------------------------------------------------
+            # GENERATE ANSWER USING FLAN-T5
+            # --------------------------------------------------
+
+            prompt = f"""
+You are the Zyro Dynamics HR policy assistant.
+
+Answer the employee's question using only the policy context.
+
+Give a direct and clear answer.
+Include important numbers, eligibility conditions and rules.
+Do not invent information.
+If the answer is not available, say so.
 
 Policy context:
 {context}
 
-Employee question: {question}
+Question: {question}
 
-Direct answer:
+Answer:
 """
 
-        tokenizer, model = language_model
+            tokenizer, model = language_model
 
-        inputs = tokenizer(
-            prompt,
-            return_tensors="pt",
-            truncation=True,
-            max_length=512
-        )
-
-        with torch.no_grad():
-
-            output = model.generate(
-                **inputs,
-                max_new_tokens=120,
-                num_beams=4,
-                do_sample=False,
-                repetition_penalty=1.2
+            inputs = tokenizer(
+                prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=512
             )
 
-        answer = tokenizer.decode(
-            output[0],
-            skip_special_tokens=True
-        )
+            with torch.no_grad():
 
-
-        # --------------------------------------------------
-        # REMOVE DUPLICATE SOURCE CITATIONS
-        # --------------------------------------------------
-
-        sources = []
-
-        seen_sources = set()
-
-        for item in retrieved:
-
-            source_key = (
-                item["source"],
-                item["page"]
-            )
-
-            if source_key not in seen_sources:
-
-                sources.append(item)
-
-                seen_sources.add(source_key)
-
-
-        # --------------------------------------------------
-        # ACCURATE ANNUAL LEAVE POLICY RESPONSE
-        # --------------------------------------------------
-
-        normalized_question = question.lower()
-
-        annual_leave_question = (
-            "annual leave" in normalized_question
-            or (
-                "leave" in normalized_question
-                and (
-                    "per year" in normalized_question
-                    or "yearly" in normalized_question
-                    or "annually" in normalized_question
+                output = model.generate(
+                    **inputs,
+                    max_new_tokens=150,
+                    num_beams=4,
+                    do_sample=False,
+                    repetition_penalty=1.2
                 )
-                and (
-                    "how many" in normalized_question
-                    or "entitlement" in normalized_question
-                    or "days" in normalized_question
+
+            answer = tokenizer.decode(
+                output[0],
+                skip_special_tokens=True
+            )
+
+            # --------------------------------------------------
+            # SOURCE CITATIONS
+            # --------------------------------------------------
+
+            sources = []
+
+            seen_sources = set()
+
+            for item in retrieved:
+
+                source_key = (
+                    item["source"],
+                    item["page"]
                 )
-            )
-        )
 
-        if annual_leave_question:
+                if source_key not in seen_sources:
 
-            answer = (
-                "According to the Zyro Dynamics Leave Policy:\n\n"
-                "**1. Earned Leave (EL):** 15 days after completing "
-                "one year of continuous service, provided the "
-                "employee has worked at least 240 days in that year. "
-                "Thereafter, EL accrues at 1.25 days per month.\n\n"
-                "**2. Casual Leave (CL):** 8 days per year.\n\n"
-                "**3. Sick Leave (SL):** 10 days per year.\n\n"
-                "**Probation:** Employees accrue Earned Leave at "
-                "0.5 days per month during probation. This leave "
-                "becomes available for use only after probation "
-                "confirmation."
-            )
+                    sources.append({
+                        "source": item["source"],
+                        "page": item["page"]
+                    })
 
-            sources = [{
-                "source": "02_Leave_Policy.pdf",
-                "page": 2
-            }]
-
+                    seen_sources.add(source_key)
 
     # --------------------------------------------------
     # PREPARE FINAL RESPONSE
@@ -409,15 +522,12 @@ Direct answer:
                 f"(Page {source['page']})"
             )
 
-
     # --------------------------------------------------
     # DISPLAY ANSWER
     # --------------------------------------------------
 
     with st.chat_message("assistant"):
-
         st.markdown(response)
-
 
     st.session_state.messages.append({
         "role": "assistant",
