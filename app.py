@@ -321,7 +321,6 @@ The ICC is responsible for handling workplace sexual-harassment complaints and c
         }
 
     # POSH CONFIDENTIALITY
-    # Check this BEFORE the general POSH complaint answer.
 
     confidentiality_terms = [
         "confidentiality",
@@ -372,6 +371,108 @@ Disclosure is permitted only to people directly involved in the matter or those 
 A breach of confidentiality is itself considered a disciplinary offence under the POSH Policy.
 
 The policy also prohibits retaliation against anyone who files a complaint, participates in an inquiry, or reports a concern in good faith.
+""",
+            "sources": [
+                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
+            ]
+        }
+
+    # POSH DISCIPLINARY ACTION
+    # This must come BEFORE the general POSH complaint answer.
+
+    disciplinary_terms = [
+        "disciplinary action",
+        "disciplinary measures",
+        "disciplinary consequences",
+        "possible consequences",
+        "what action can be taken",
+        "what action will be taken",
+        "action against the respondent",
+        "action against an employee",
+        "action against the accused",
+        "found guilty",
+        "found responsible",
+        "if the employee is guilty",
+        "if found guilty",
+        "punishment for sexual harassment",
+        "penalty for sexual harassment",
+        "consequences of sexual harassment",
+        "sanctions for sexual harassment",
+        "what happens to the accused",
+        "what happens if an employee is found",
+        "termination for sexual harassment"
+    ]
+
+    if (
+        any(term in q for term in disciplinary_terms)
+        and any(term in q for term in [
+            "harassment", "posh", "icc", "respondent",
+            "employee", "accused", "sexual", "guilty"
+        ])
+    ):
+
+        return {
+            "answer": """
+According to the Zyro Dynamics POSH Policy, disciplinary action may be taken against an employee found responsible for sexual harassment, depending on the findings of the Internal Complaints Committee (ICC).
+
+The possible consequences include:
+
+1. **Written warning:** A formal written warning along with sensitisation and inclusion training.
+2. **Suspension without pay:** The employee may be suspended without receiving salary during the suspension period.
+3. **Transfer:** The employee may be transferred to another team, project, or work location.
+4. **Withholding benefits:** Promotion, salary increments, or other employment benefits may be withheld.
+5. **Termination:** The employee's employment may be terminated.
+6. **Referral to law enforcement:** If the conduct constitutes a criminal offence under Indian law, the matter may be referred to law enforcement authorities.
+
+**Important:** The appropriate action depends on the ICC's inquiry findings and recommendations. These measures are specified in the company's POSH Policy.
+""",
+            "sources": [
+                ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
+            ]
+        }
+
+    # POSH PROTECTION FROM RETALIATION
+
+    retaliation_terms = [
+        "protection from retaliation",
+        "protected from retaliation",
+        "retaliation against",
+        "retaliation protection",
+        "retaliatory action",
+        "retaliatory actions",
+        "punished for reporting",
+        "punished for complaining",
+        "revenge for reporting",
+        "protection for reporting",
+        "protection does the company provide",
+        "reporting sexual harassment"
+    ]
+
+    if (
+        any(term in q for term in retaliation_terms)
+        and any(term in q for term in [
+            "harassment", "posh", "icc", "complaint",
+            "report", "employee", "retaliation"
+        ])
+    ):
+
+        return {
+            "answer": """
+The Zyro Dynamics POSH Policy strictly prohibits retaliation against anyone who:
+
+- Files a sexual-harassment complaint.
+- Participates in an ICC inquiry.
+- Reports a suspected violation in good faith.
+
+**Examples of prohibited retaliation include:**
+
+- Adverse performance ratings.
+- Demotion or transfer.
+- Isolation.
+- Threats.
+- Termination.
+
+Retaliation against a person involved in reporting or investigating a complaint is treated as a **separate and serious disciplinary matter** under the policy.
 """,
             "sources": [
                 ("08_Prevention_of_Sexual_Harassment_Policy.pdf", 3)
