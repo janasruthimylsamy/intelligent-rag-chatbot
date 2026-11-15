@@ -163,10 +163,7 @@ def load_rag():
         dtype="float32"
     )
 
-    index = faiss.IndexFlatIP(
-        embeddings.shape[1]
-    )
-
+    index = faiss.IndexFlatIP(embeddings.shape[1])
     index.add(embeddings)
 
     return model, index, chunks
@@ -219,32 +216,40 @@ def get_document_filter(question):
 
         "05_Performance_Review_Policy.pdf": [
             "performance review", "performance appraisal",
-            "performance rating", "promotion criteria"
+            "performance rating", "promotion criteria",
+            "review cycle", "360 degree feedback"
         ],
 
         "06_Compensation_and_Benefits_Policy.pdf": [
             "compensation", "salary structure",
             "employee benefits", "bonus", "increment",
-            "pay structure", "benefits policy"
+            "pay structure", "benefits policy",
+            "insurance", "provident fund", "gratuity",
+            "wellness allowance", "employee assistance",
+            "esop", "stock options"
         ],
 
         "07_IT_and_Data_Security_Policy.pdf": [
             "data security", "password policy",
             "information security", "cybersecurity",
-            "it policy", "company laptop", "data breach"
+            "it policy", "company laptop", "data breach",
+            "security incident", "phishing", "malware",
+            "unauthorised access", "unauthorized access"
         ],
 
         "09_Onboarding_and_Separation_Policy.pdf": [
             "onboarding", "joining formalities",
             "resignation", "notice period",
             "exit process", "separation policy",
-            "offboarding"
+            "offboarding", "leaving the company",
+            "last working day", "exit formalities"
         ],
 
         "10_Travel_and_Expense_Policy.pdf": [
             "travel policy", "travel expenses",
             "reimbursement", "business travel",
-            "hotel expenses", "travel allowance"
+            "hotel expenses", "travel allowance",
+            "eligible expenses", "travel claim"
         ]
     }
 
@@ -276,7 +281,10 @@ def retrieve_documents(question, model, index, chunks):
         dtype="float32"
     )
 
-    search_count = min(40, len(chunks))
+    # Search all chunks before filtering by document.
+    # This avoids missing relevant chunks from a selected PDF.
+
+    search_count = len(chunks)
 
     scores, indices = index.search(
         query_embedding,
@@ -300,7 +308,7 @@ def retrieve_documents(question, model, index, chunks):
         ):
             continue
 
-        if score < 0.25:
+        if score < 0.20:
             continue
 
         results.append({
@@ -317,10 +325,10 @@ def retrieve_documents(question, model, index, chunks):
 # 8. HELPER FOR DIRECT ANSWERS
 # ==================================================
 
-def make_answer(answer, page_numbers, filename=POSH_FILE):
+def make_answer(answer, page_numbers, filename):
 
     return {
-        "answer": answer,
+        "answer": answer.strip(),
         "sources": [
             (filename, page)
             for page in page_numbers
@@ -334,36 +342,44 @@ def make_answer(answer, page_numbers, filename=POSH_FILE):
 
 def get_direct_answer(question):
 
-    q = question.lower().strip()
+    q = re.sub(r"\s+", " ", question.lower().strip())
+
+    handbook = "01_Employee_Handbook.pdf"
+    leave = "02_Leave_Policy.pdf"
+    wfh = "03_Work_From_Home_Policy.pdf"
+    conduct = "04_Code_of_Conduct.pdf"
+    performance = "05_Performance_Review_Policy.pdf"
+    benefits = "06_Compensation_and_Benefits_Policy.pdf"
+    security = "07_IT_and_Data_Security_Policy.pdf"
+    separation = "09_Onboarding_and_Separation_Policy.pdf"
+    travel = "10_Travel_and_Expense_Policy.pdf"
 
     # --------------------------------------------------
     # POSH: TYPES OF SEXUAL HARASSMENT
     # --------------------------------------------------
 
-    behaviour_question = any(term in q for term in [
-        "what types of behaviour",
-        "what type of behaviour",
-        "types of behaviour",
-        "types of conduct",
-        "what behaviours",
-        "what behaviour",
-        "what actions are considered",
-        "what is considered sexual harassment",
-        "examples of sexual harassment",
-        "examples of harassment",
+    behaviour_terms = [
+        "types of behaviour", "types of behavior",
+        "type of behaviour", "type of behavior",
+        "what behaviours", "what behaviors",
+        "what behaviour", "what behavior",
+        "types of conduct", "examples of sexual harassment",
         "what constitutes sexual harassment",
+        "what is considered sexual harassment",
         "meaning of sexual harassment",
-        "define sexual harassment"
-    ])
+        "define sexual harassment",
+        "what counts as sexual harassment",
+        "forms of sexual harassment"
+    ]
 
     if (
-        behaviour_question
+        any(term in q for term in behaviour_terms)
         or (
             "sexual harassment" in q
             and any(term in q for term in [
                 "behaviour", "behavior", "examples",
                 "constitute", "considered", "meaning",
-                "types", "definition"
+                "types", "definition", "include"
             ])
         )
     ):
@@ -385,37 +401,27 @@ According to the Zyro Dynamics POSH Policy, sexual harassment includes the follo
 
 ### Related situations covered by the policy
 
-The policy also identifies:
-
 - Implied or explicit promises of preferential treatment.
 - Threats of adverse employment consequences.
 - Creating a hostile work environment.
 - Humiliating treatment that may affect a person's health or safety.
 
-**Important:** The policy covers unwelcome conduct of a sexual nature. These examples are based on the company's POSH Policy.
-""", [2])
+These examples are based on the company's POSH Policy.
+""", [2], POSH_FILE)
 
     # --------------------------------------------------
     # POSH: POLICY COVERAGE
     # --------------------------------------------------
 
     coverage_terms = [
-        "who is covered",
-        "who are covered",
-        "who does the policy cover",
-        "who is covered under",
-        "who comes under",
-        "who does the posh policy apply to",
-        "who does this policy apply to",
-        "who is included",
-        "who are included",
-        "scope of the posh policy",
-        "posh policy scope",
-        "coverage of the posh policy",
-        "people covered under",
-        "persons covered under",
-        "employees covered under",
-        "third party personnel",
+        "who is covered", "who are covered",
+        "who does the policy cover", "who is covered under",
+        "who comes under", "who does the posh policy apply to",
+        "who does this policy apply to", "who is included",
+        "who are included", "scope of the posh policy",
+        "posh policy scope", "coverage of the posh policy",
+        "people covered under", "persons covered under",
+        "employees covered under", "third party personnel",
         "third-party personnel"
     ]
 
@@ -436,8 +442,6 @@ According to the Zyro Dynamics POSH Policy, the policy covers:
 
 ### Where does the policy apply?
 
-The policy applies to workplace-related situations in:
-
 - Company offices in India and abroad.
 - Client sites.
 - Coworking spaces.
@@ -445,28 +449,22 @@ The policy applies to workplace-related situations in:
 - Business travel.
 - Digital communication channels connected to the workplace.
 
-**Important:** The policy is not limited to permanent or full-time employees. It also covers the other listed employment categories and third-party personnel.
-""", [2])
+The policy is not limited to permanent or full-time employees.
+""", [2], POSH_FILE)
 
     # --------------------------------------------------
     # POSH: ICC MEMBERSHIP
     # --------------------------------------------------
 
     membership_terms = [
-        "who are the members",
-        "who is on the committee",
-        "who are on the committee",
-        "committee members",
-        "icc members",
-        "members of the icc",
+        "who are the members", "who is on the committee",
+        "who are on the committee", "committee members",
+        "icc members", "members of the icc",
         "members of internal complaints committee",
         "internal complaints committee members",
-        "who is in the icc",
-        "who are in the icc",
-        "composition of the icc",
-        "icc composition",
-        "presiding officer",
-        "external member",
+        "who is in the icc", "who are in the icc",
+        "composition of the icc", "icc composition",
+        "presiding officer", "external member",
         "internal member"
     ]
 
@@ -481,7 +479,7 @@ According to the Zyro Dynamics POSH Policy, the Internal Complaints Committee (I
 4. **Adv. Preethi Srinivas** – External Member from an external women's rights organisation.
 
 The ICC handles workplace sexual-harassment complaints and conducts inquiries under the POSH Policy.
-""", [2])
+""", [2], POSH_FILE)
 
     # --------------------------------------------------
     # POSH: CONFIDENTIALITY
@@ -492,8 +490,7 @@ The ICC handles workplace sexual-harassment complaints and conducts inquiries un
         "identity confidential", "identities confidential",
         "kept confidential", "remain confidential",
         "privacy of complainant", "identity of complainant",
-        "identity of the complainant",
-        "complainant identity",
+        "identity of the complainant", "complainant identity",
         "confidentiality of complaint",
         "confidentiality of proceedings",
         "who can know about the complaint",
@@ -514,9 +511,9 @@ The ICC handles workplace sexual-harassment complaints and conducts inquiries un
 
 The following information must remain confidential:
 
-- The identity of the complainant.
-- The identity of the respondent.
-- The identities of witnesses.
+- Identity of the complainant.
+- Identity of the respondent.
+- Identities of witnesses.
 - Inquiry proceedings.
 - Inquiry findings and recommendations.
 
@@ -525,27 +522,20 @@ Disclosure is permitted only to people directly involved in the matter or those 
 A breach of confidentiality is itself a disciplinary offence.
 
 The policy also prohibits retaliation against anyone who files a complaint, participates in an inquiry, or reports a concern in good faith.
-""", [3])
+""", [3], POSH_FILE)
 
     # --------------------------------------------------
     # POSH: DISCIPLINARY ACTION
     # --------------------------------------------------
 
     disciplinary_terms = [
-        "disciplinary action",
-        "disciplinary measures",
-        "disciplinary consequences",
-        "possible consequences",
-        "what action can be taken",
-        "what action will be taken",
-        "action against the respondent",
-        "action against an employee",
-        "action against the accused",
-        "found guilty",
-        "found responsible",
-        "if the employee is guilty",
-        "if found guilty",
-        "punishment for sexual harassment",
+        "disciplinary action", "disciplinary measures",
+        "disciplinary consequences", "possible consequences",
+        "what action can be taken", "what action will be taken",
+        "action against the respondent", "action against an employee",
+        "action against the accused", "found guilty",
+        "found responsible", "if the employee is guilty",
+        "if found guilty", "punishment for sexual harassment",
         "penalty for sexual harassment",
         "consequences of sexual harassment",
         "sanctions for sexual harassment",
@@ -574,7 +564,7 @@ Possible consequences include:
 6. Referral to law enforcement if the conduct constitutes a criminal offence under Indian law.
 
 The appropriate action depends on the ICC inquiry findings and recommendations.
-""", [3])
+""", [3], POSH_FILE)
 
     # --------------------------------------------------
     # POSH: PROTECTION FROM RETALIATION
@@ -582,16 +572,11 @@ The appropriate action depends on the ICC inquiry findings and recommendations.
 
     retaliation_terms = [
         "protection from retaliation",
-        "protected from retaliation",
-        "retaliation against",
-        "retaliation protection",
-        "retaliatory action",
-        "retaliatory actions",
-        "punished for reporting",
-        "punished for complaining",
-        "revenge for reporting",
-        "protection for reporting",
-        "protection does the company provide",
+        "protected from retaliation", "retaliation against",
+        "retaliation protection", "retaliatory action",
+        "retaliatory actions", "punished for reporting",
+        "punished for complaining", "revenge for reporting",
+        "protection for reporting", "protection does the company provide",
         "reporting sexual harassment"
     ]
 
@@ -619,30 +604,21 @@ Examples of prohibited retaliation include:
 - Termination.
 
 Retaliation is treated as a separate and serious disciplinary matter under the policy.
-""", [2, 3])
+""", [2, 3], POSH_FILE)
 
     # --------------------------------------------------
     # POSH: COMPLAINT PROCEDURE
-    # Only questions about reporting or filing a complaint
-    # should trigger this answer.
     # --------------------------------------------------
 
     complaint_intent = any(term in q for term in [
-        "file a complaint",
-        "submit a complaint",
-        "make a complaint",
-        "complaint procedure",
-        "complaint process",
-        "how to complain",
-        "how can i complain",
-        "how do i report",
-        "how to report",
-        "report sexual harassment",
-        "report harassment",
-        "experience sexual harassment",
+        "file a complaint", "submit a complaint",
+        "make a complaint", "complaint procedure",
+        "complaint process", "how to complain",
+        "how can i complain", "how do i report",
+        "how to report", "report sexual harassment",
+        "report harassment", "experience sexual harassment",
         "experiences sexual harassment",
-        "what should i do if",
-        "what should an employee do if"
+        "what should i do if", "what should an employee do if"
     ])
 
     if (
@@ -685,7 +661,46 @@ The ICC submits its report and recommendations to management within 10 days of c
 Management implements the recommended action based on the ICC's findings.
 
 The policy also requires confidentiality and prohibits retaliation against people who report complaints or participate in inquiries in good faith.
-""", [2, 3])
+""", [2, 3], POSH_FILE)
+
+    # --------------------------------------------------
+    # ATTENDANCE-MARKING PROCEDURE
+    # --------------------------------------------------
+
+    attendance_terms = [
+        "attendance-marking", "attendance marking",
+        "mark attendance", "marking attendance",
+        "attendance procedure", "attendance process",
+        "how is attendance", "how do employees record attendance",
+        "record attendance", "attendance recorded",
+        "mark entry and exit", "biometric attendance",
+        "attendance system", "attendance tracking"
+    ]
+
+    if any(term in q for term in attendance_terms):
+
+        return make_answer("""
+According to the Employee Handbook, employees must record their attendance every working day.
+
+### Attendance methods
+
+- **Office employees:** Attendance is recorded through biometric terminals at office locations.
+- **Remote employees:** Attendance is recorded through the AcruxHR mobile application.
+
+### Employee responsibilities
+
+- Mark entry when starting work.
+- Mark exit when finishing work.
+- Record both entry and exit every working day without exception.
+
+### Missing attendance
+
+Three or more consecutive days of absent or unmarked attendance without a corresponding approved leave entry will trigger an escalation to the HR Business Partner.
+
+### Attendance portal
+
+The handbook identifies the AcruxHR portal for attendance and employee self-service.
+""", [4], handbook)
 
     # --------------------------------------------------
     # WORKING HOURS
@@ -718,7 +733,282 @@ Employees should confirm the correct expected working duration with HR.
 ### Flexible working hours
 
 Employees at grade L3 and above may opt for flexible hours within the 10:00 AM to 4:00 PM core band, subject to written manager approval.
-""", [3, 4], "01_Employee_Handbook.pdf")
+""", [3, 4], handbook)
+
+    # --------------------------------------------------
+    # SICK LEAVE
+    # --------------------------------------------------
+
+    sick_leave_terms = [
+        "sick leave", "sick leave entitlement",
+        "sick leave days", "medical leave",
+        "leave when sick", "leave for illness"
+    ]
+
+    if any(term in q for term in sick_leave_terms):
+
+        return make_answer("""
+According to the Zyro Dynamics Leave Policy, employees are entitled to **10 days of Sick Leave (SL) per year**.
+
+### Sick Leave rules
+
+- Annual entitlement: 10 days.
+- Sick Leave is credited on the first day of the following month, provided the employee worked for at least 20 days during the previous month.
+- Sick Leave cannot be carried forward to the next financial year.
+- Unused Sick Leave cannot be encashed.
+- Any remaining balance lapses at the end of the financial year on 31 March.
+- Sick Leave exceeding 2 consecutive days requires a Medical Certificate from a registered medical practitioner.
+- The certificate must be submitted within 3 working days of returning to work.
+
+For unplanned sickness or emergencies, employees should follow the leave application procedure in the Leave Policy.
+""", [2], leave)
+
+    # --------------------------------------------------
+    # ANNUAL / EARNED LEAVE
+    # --------------------------------------------------
+
+    if (
+        "annual leave" in q
+        or "earned leave" in q
+        or "casual leave" in q
+    ):
+
+        return make_answer("""
+According to the Zyro Dynamics Leave Policy:
+
+- Earned Leave: 15 days after one year of service and 240 working days; thereafter, 1.25 days per month.
+- Casual Leave: 8 days per year.
+- Sick Leave: 10 days per year.
+- During probation, Earned Leave is credited at 0.5 days per month and becomes available after confirmation.
+
+Casual Leave and Sick Leave cannot be carried forward or encashed. Please refer to the Leave Policy for the applicable conditions.
+""", [2], leave)
+
+    # --------------------------------------------------
+    # BUSINESS TRAVEL EXPENSES
+    # --------------------------------------------------
+
+    travel_terms = [
+        "travel expenses", "business travel expenses",
+        "eligible expenses", "expenses can employees claim",
+        "claim during official travel", "travel reimbursement",
+        "expenses during business travel",
+        "official business travel", "travel claim",
+        "reimbursable travel", "travel allowance"
+    ]
+
+    if any(term in q for term in travel_terms):
+
+        return make_answer("""
+According to the Zyro Dynamics Travel and Expense Policy, eligible official business travel expenses include:
+
+### Eligible expenses
+
+1. **Flights:** Economy or business class, as applicable to the employee's grade and policy limits.
+2. **Accommodation:** Business hotels within the approved per-night rate limit.
+3. **Meals:** Within the applicable daily allowance limit and supported by valid receipts.
+4. **Ground transport:** Cab or taxi travel to airports and client locations.
+5. **International roaming and calls:** Documented business-related calls.
+6. **Laundry:** Eligible for trips exceeding 4 nights.
+
+### Expenses that are not eligible
+
+- Flight upgrades beyond grade entitlement.
+- Personal travel extensions.
+- Luxury suites.
+- Alcoholic beverages.
+- Meals for personal guests.
+- Personal trips, sightseeing, and leisure travel.
+- Personal calls, streaming, and entertainment.
+- Laundry for trips of 4 nights or fewer.
+
+### Claim submission requirements
+
+- Submit the expense report through the ZyroHR portal within 7 working days of returning.
+- Individual expenses above ₹500 require an original receipt, GST invoice, or valid digital invoice.
+- Expenses without supporting documents will not be reimbursed.
+- Reports submitted after 30 calendar days will not be processed.
+
+All official travel must be pre-approved. The policy's specific grade-based limits and daily allowance amounts should be checked before booking.
+""", [1, 2, 3], travel)
+
+    # --------------------------------------------------
+    # DATA SECURITY INCIDENT REPORTING
+    # --------------------------------------------------
+
+    incident_terms = [
+        "security incident", "data security incident",
+        "suspected security", "suspect a data",
+        "data breach", "phishing", "malware",
+        "lost or stolen device", "unauthorised access",
+        "unauthorized access", "security breach",
+        "suspected data leak", "report a security incident",
+        "reporting security incident"
+    ]
+
+    if any(term in q for term in incident_terms):
+
+        return make_answer("""
+According to the Zyro Dynamics IT and Data Security Policy, any actual or suspected security incident must be reported without delay.
+
+### Where to report
+
+Report incidents to the IT Security team. The extracted policy displays the email as `security@zyrodyn amics.com`. Because the extracted address contains a space, verify the correct email address with IT before sending.
+
+### Reporting timelines
+
+| Incident type | Report to | Timeline |
+|---|---|---|
+| Phishing or suspicious email | IT Security | Immediately |
+| Malware or suspicious device behaviour | IT Helpdesk and IT Security | Within 1 hour |
+| Data breach or suspected leak | CISO, Legal, and HR | Within 2 hours |
+| Lost or stolen device | IT and HR | Within 4 hours |
+| Suspected unauthorised access | IT Security and reporting manager | Immediately |
+
+Examples of reportable incidents include data loss, malware infection, phishing, unauthorised access, and device loss.
+
+**Important:** Employees must not delay reporting a suspected incident. The policy states that employees who fail to report a known or suspected incident may be held accountable for resulting harm.
+""", [3], security)
+
+    # --------------------------------------------------
+    # PERFORMANCE REVIEW FREQUENCY
+    # --------------------------------------------------
+
+    performance_terms = [
+        "performance review", "performance appraisal",
+        "review frequency", "how frequently",
+        "how often are reviews", "review cycles",
+        "performance evaluation", "mid-year review",
+        "annual performance review", "360 degree feedback"
+    ]
+
+    if any(term in q for term in performance_terms):
+
+        return make_answer("""
+According to the Zyro Dynamics Performance Review Policy, the company follows these review cycles:
+
+| Review type | Frequency / Timing |
+|---|---|
+| Probation Review | At Month 3 and Month 6 |
+| Mid-Year Review (MYR) | Annually, in September |
+| Annual Performance Review (APR) | Annually, in March |
+| 360-Degree Feedback | Annually, in February |
+| PIP Review | Monthly during a Performance Improvement Plan |
+
+### Annual review process
+
+- 1–20 February: 360-degree feedback.
+- 1–10 March: Employee self-assessment.
+- 11–20 March: Manager assessment.
+- 21–25 March: Calibration meeting.
+- 26–31 March: Final ratings confirmed by HR.
+- 1–10 April: One-on-one feedback conversation.
+- 15 April: Increment and promotion letters issued.
+
+Therefore, employees have an annual performance review, a September mid-year review, and other reviews where applicable, such as probation and PIP reviews.
+""", [2, 3], performance)
+
+    # --------------------------------------------------
+    # EMPLOYEE RESIGNATION AND EXIT FORMALITIES
+    # --------------------------------------------------
+
+    separation_terms = [
+        "leaving the company", "leaving the organisation",
+        "leaving the organization", "resign",
+        "resignation", "exit formalities",
+        "exit process", "separation process",
+        "offboarding", "last working day",
+        "when leaving", "notice period",
+        "employee leaving", "return company assets"
+    ]
+
+    if any(term in q for term in separation_terms):
+
+        return make_answer("""
+According to the Zyro Dynamics Onboarding and Separation Policy, an employee leaving the company must complete the following steps.
+
+### 1. Submit resignation
+
+- Give written notice to the reporting manager and HR.
+- Submit the resignation through the ZyroHR portal.
+- Obtain written confirmation from HR.
+- Follow the notice period applicable to the employee's grade.
+
+### Notice periods
+
+| Grade | Notice period |
+|---|---|
+| L1 to L3 | 30 days |
+| L4 to L6 | 60 days |
+| L7 to L9 | 90 days |
+| L10 (C-Suite) | 90 days, as per individual employment contract |
+
+### 2. Complete handover
+
+Complete knowledge transfer and handover documentation with the manager one week before the last working day.
+
+### 3. Return company assets
+
+Return the laptop, phone, access cards, and all other company assets to IT on the last working day.
+
+### 4. Complete clearances
+
+- IT revokes system access and credentials on the last working day.
+- Finance clearance for advances, loans, and expenses must be obtained 3 days before the last working day.
+- Attend the HR exit interview during the final week of employment.
+
+### 5. Receive exit documents
+
+- Experience letter: HR issues it within 7 working days of the last working day.
+- Relieving letter: HR issues it after Full and Final settlement is processed.
+
+Employees must also return or delete confidential documents and credentials as directed by IT and HR.
+""", [2, 3], separation)
+
+    # --------------------------------------------------
+    # EMPLOYEE BENEFITS
+    # --------------------------------------------------
+
+    benefits_terms = [
+        "employee benefits", "benefits provided",
+        "what benefits", "company benefits",
+        "insurance benefits", "health insurance",
+        "medical insurance", "wellness allowance",
+        "employee assistance programme",
+        "employee assistance program",
+        "provident fund", "gratuity",
+        "stock options", "esop"
+    ]
+
+    if any(term in q for term in benefits_terms):
+
+        return make_answer("""
+According to the Zyro Dynamics Compensation and Benefits Policy, employee benefits include the following:
+
+### 1. Health and insurance benefits
+
+- **Group Medical Insurance:** Coverage up to ₹5,00,000 per year for the employee, spouse, and up to two dependent children. The company pays the premiums.
+- **Personal Accident Insurance:** Coverage equal to 5 times the employee's annual CTC.
+- **Term Life Insurance:** Coverage equal to 3 times annual CTC for permanent employees.
+
+### 2. Retirement benefits
+
+- **Provident Fund (PF):** Both the employee and company contribute 12% of the employee's basic salary each month.
+- **Gratuity:** Payable to employees who complete 5 or more years of continuous service, according to applicable law.
+
+### 3. Wellness and lifestyle benefits
+
+- **Annual Wellness Allowance:** ₹12,000 per year, available at ₹1,000 per month for eligible wellness expenses such as gym memberships, fitness apps, health check-ups, and mental health consultations.
+- **Employee Assistance Programme (EAP):** Up to 6 free and confidential counselling sessions per year.
+
+### 4. Employee Stock Options
+
+- ESOPs are offered to employees at grade L5 and above.
+- Vesting schedule: 4 years.
+- Cliff period: 1 year.
+
+Eligibility and applicable conditions depend on the relevant benefit provisions and employment terms.
+""", [3], benefits)
 
     # --------------------------------------------------
     # CASH ACCEPTANCE
@@ -734,7 +1024,7 @@ Accepting cash from any party is strictly prohibited.
 The Code of Conduct states that accepting cash is never permitted. Violations may result in immediate disciplinary action.
 
 The company follows a zero-tolerance approach to accepting cash.
-""", [3], "04_Code_of_Conduct.pdf")
+""", [3], conduct)
 
     # --------------------------------------------------
     # CONFIDENTIAL INFORMATION
@@ -762,7 +1052,7 @@ Employees must not post company information on social media, share it through pe
 When leaving the company, employees must return or delete confidential documents and credentials as directed by IT or HR.
 
 Violations may result in disciplinary action up to and including termination and may also attract civil or criminal liability under applicable law.
-""", [2], "04_Code_of_Conduct.pdf")
+""", [2], conduct)
 
     # --------------------------------------------------
     # SOCIAL MEDIA
@@ -780,7 +1070,7 @@ Negative commentary or criticism of colleagues, management, or clients on social
 Employees should include this disclaimer when expressing personal views:
 
 **"Views expressed are my own and do not represent Zyro Dynamics."**
-""", [3], "04_Code_of_Conduct.pdf")
+""", [3], conduct)
 
     # --------------------------------------------------
     # REPORTING CODE OF CONDUCT VIOLATIONS
@@ -801,7 +1091,7 @@ Employees can report suspected Code of Conduct violations through:
 4. **Chief People Officer:** marta@acruxdynamics.com.
 
 Employees who report violations in good faith are protected. Retaliation against a good-faith reporter is itself a violation and may result in serious disciplinary action.
-""", [3], "04_Code_of_Conduct.pdf")
+""", [3], conduct)
 
     # --------------------------------------------------
     # CONFLICT OF INTEREST
@@ -817,7 +1107,7 @@ Important requirements:
 - Financial interests in competitors, customers, or suppliers require written clearance from Legal & Compliance.
 - Immediate family members employed by a competitor or vendor must be disclosed to HR.
 - Paid outside employment or consulting requires prior written approval from the Chief People Officer.
-""", [2], "04_Code_of_Conduct.pdf")
+""", [2], conduct)
 
     # --------------------------------------------------
     # GIFTS AND HOSPITALITY
@@ -834,7 +1124,7 @@ The Code of Conduct specifies these gift and hospitality rules:
 - Vendor-sponsored domestic travel is not permitted without prior written approval from the CFO.
 - Branded gifts to clients require Finance pre-approval and must be below ₹2,000 per item.
 - Accepting cash from any party is never permitted.
-""", [3], "04_Code_of_Conduct.pdf")
+""", [3], conduct)
 
     # --------------------------------------------------
     # WORK FROM HOME
@@ -854,26 +1144,7 @@ According to the Work From Home Policy:
 - **Emergency WFH:** Available to all employees as directed by HR.
 
 Employees must also have completed at least 6 months of continuous service and have a recent performance rating of Meets Expectations or above to satisfy the stated eligibility criteria.
-""", [2], "03_Work_From_Home_Policy.pdf")
-
-    # --------------------------------------------------
-    # ANNUAL LEAVE
-    # --------------------------------------------------
-
-    if "annual leave" in q or "earned leave" in q:
-
-        return make_answer("""
-According to the Leave Policy:
-
-- Employees become eligible for earned leave after completing one year of continuous service and 240 working days.
-- The entitlement is 15 days of earned leave.
-- After that, earned leave is credited at 1.25 days per month.
-- Casual leave entitlement is 8 days per year.
-- Sick leave entitlement is 10 days per year.
-- During probation, earned leave is credited at 0.5 days per month and becomes available after confirmation.
-
-Please refer to the Leave Policy for the applicable conditions and procedures.
-""", [2], "02_Leave_Policy.pdf")
+""", [2], wfh)
 
     return None
 
@@ -895,7 +1166,11 @@ def is_likely_hr_question(question):
         "posh", "icc", "complaint", "retaliation",
         "onboarding", "separation", "performance",
         "appraisal", "security", "password",
-        "compensation", "bonus", "allowance"
+        "compensation", "bonus", "allowance",
+        "sick", "medical", "insurance", "gratuity",
+        "provident", "phishing", "malware",
+        "resign", "exit", "review", "benefits",
+        "business trip", "business travel"
     ]
 
     q = question.lower()
@@ -914,11 +1189,16 @@ def display_sources(sources):
 
     st.markdown("**Sources:**")
 
+    seen = set()
+
     for source, page in sources:
 
-        st.markdown(
-            f"- `{source}` (Page {page})"
-        )
+        if (source, page) in seen:
+            continue
+
+        seen.add((source, page))
+
+        st.markdown(f"- `{source}` (Page {page})")
 
 
 # ==================================================
@@ -928,9 +1208,8 @@ def display_sources(sources):
 def format_retrieved_results(results):
 
     answer = (
-        "I couldn't match this question to a predefined answer. "
-        "Here are the most relevant excerpts retrieved from the HR "
-        "policy documents. Please read the cited sections carefully:\n\n"
+        "I found relevant information in the HR policy documents. "
+        "Here are the most relevant excerpts:\n\n"
     )
 
     seen_sources = set()
@@ -1031,7 +1310,11 @@ if "messages" not in st.session_state:
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
+
         st.markdown(message["content"])
+
+        if message.get("sources"):
+            display_sources(message["sources"])
 
 
 # ==================================================
@@ -1057,16 +1340,16 @@ if question:
 
         with st.spinner("Searching HR policy documents..."):
 
-            # First: check predefined answers.
-
             direct_result = get_direct_answer(question)
+
+            sources = []
+
+            # First: predefined policy answers.
 
             if direct_result:
 
                 answer = direct_result["answer"]
-
-                st.markdown(answer)
-                display_sources(direct_result["sources"])
+                sources = direct_result["sources"]
 
             # Second: reject unrelated questions.
 
@@ -1078,8 +1361,6 @@ HR policies and employee handbook.
 
 Please ask an HR-related question.
 """
-
-                st.markdown(answer)
 
             # Third: retrieve relevant policy content.
 
@@ -1098,9 +1379,6 @@ Please ask an HR-related question.
                         results
                     )
 
-                    st.markdown(answer)
-                    display_sources(sources)
-
                 else:
 
                     answer = """
@@ -1113,9 +1391,13 @@ Please try rephrasing your question or contact HR
 for clarification.
 """
 
-                    st.markdown(answer)
+            st.markdown(answer)
+
+            if sources:
+                display_sources(sources)
 
     st.session_state.messages.append({
         "role": "assistant",
-        "content": answer
+        "content": answer,
+        "sources": sources
     })
