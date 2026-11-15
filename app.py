@@ -184,7 +184,10 @@ def get_document_filter(question):
             "full-time employee", "full time employee",
             "working days", "attendance", "office timing",
             "office hours", "daily working", "employee handbook",
-            "dress code", "attendance policy"
+            "dress code", "attendance policy",
+            "standard working schedule", "standard work schedule",
+            "working schedule", "standard schedule",
+            "including lunch break", "lunch break"
         ],
 
         POSH_FILE: [
@@ -280,9 +283,6 @@ def retrieve_documents(question, model, index, chunks):
         query_embedding,
         dtype="float32"
     )
-
-    # Search all chunks before filtering by document.
-    # This avoids missing relevant chunks from a selected PDF.
 
     search_count = len(chunks)
 
@@ -703,15 +703,28 @@ The handbook identifies the AcruxHR portal for attendance and employee self-serv
 """, [4], handbook)
 
     # --------------------------------------------------
-    # WORKING HOURS
+    # WORKING HOURS AND STANDARD WORK SCHEDULE
     # --------------------------------------------------
 
     working_terms = [
-        "working hours", "work hours", "hours per day",
-        "full-time employee", "full time employee",
-        "how many hours", "working days", "office hours",
-        "office timing", "daily working hours",
-        "expected to work"
+        "working hours",
+        "work hours",
+        "hours per day",
+        "full-time employee",
+        "full time employee",
+        "how many hours",
+        "working days",
+        "office hours",
+        "office timing",
+        "daily working hours",
+        "expected to work",
+        "standard working schedule",
+        "standard work schedule",
+        "including lunch break",
+        "working schedule",
+        "standard schedule",
+        "work schedule",
+        "lunch break"
     ]
 
     if any(term in q for term in working_terms):
